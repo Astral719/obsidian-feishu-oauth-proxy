@@ -1,5 +1,6 @@
 {
-  "buildCommand": "echo 'No build required'",
+  "buildCommand": "mkdir -p public && echo 'API-only deployment' > public/index.html",
+  "outputDirectory": "public",
   "headers": [
     {
       "source": "/api/(.*)",
