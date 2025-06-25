@@ -78,7 +78,7 @@ export default async function handler(req, res) {
                 </div>
 
                 <script>
-                    // 尝试通过postMessage发送给父窗口
+                    // 方案1: 尝试通过postMessage发送给父窗口
                     function sendToParent() {
                         try {
                             if (window.opener) {
@@ -97,14 +97,52 @@ export default async function handler(req, res) {
                         return false;
                     }
 
-                    // 立即尝试发送
-                    if (!sendToParent()) {
-                        // 如果失败，显示手动复制选项
+                    // 方案2: 使用localStorage存储授权结果
+                    function storeInLocalStorage() {
+                        try {
+                            const authResult = {
+                                type: 'FEISHU_OAUTH_SUCCESS',
+                                code: '${code}',
+                                state: '${state}',
+                                timestamp: Date.now()
+                            };
+                            localStorage.setItem('feishu-oauth-result', JSON.stringify(authResult));
+
+                            // 触发storage事件（如果在同一域名下）
+                            window.dispatchEvent(new StorageEvent('storage', {
+                                key: 'feishu-oauth-result',
+                                newValue: JSON.stringify(authResult),
+                                url: window.location.href
+                            }));
+
+                            document.getElementById('status').innerHTML = '✅ 授权码已保存，请返回 Obsidian 查看结果。';
+                            setTimeout(() => window.close(), 2000);
+                            return true;
+                        } catch (e) {
+                            console.error('Failed to store in localStorage:', e);
+                            return false;
+                        }
+                    }
+
+                    // 依次尝试不同的方案
+                    function attemptAutoTransfer() {
+                        if (sendToParent()) {
+                            return; // postMessage成功
+                        }
+
+                        if (storeInLocalStorage()) {
+                            return; // localStorage成功
+                        }
+
+                        // 所有方案都失败，显示手动复制选项
                         setTimeout(() => {
                             document.getElementById('status').innerHTML = '⚠️ 自动传递失败';
                             document.getElementById('manual-section').style.display = 'block';
-                        }, 2000);
+                        }, 1000);
                     }
+
+                    // 立即尝试自动传递
+                    attemptAutoTransfer();
 
                     function copyToClipboard(text) {
                         navigator.clipboard.writeText(text).then(function() {
