@@ -38,36 +38,53 @@ export default async function handler(req, res) {
         // 处理请求体
         if (data) {
             if (isFileUpload && data.file_name && data.file_content) {
-                // 处理文件上传：使用FormData构建multipart/form-data
-                const FormData = require('form-data');
-                const formData = new FormData();
+                // 处理文件上传：手动构建multipart/form-data（复刻Python实现）
+                const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
 
                 // 将base64内容解码为Buffer
                 const fileBuffer = Buffer.from(data.file_content, 'base64');
 
-                // 添加文件
-                formData.append('file', fileBuffer, {
-                    filename: data.file_name,
-                    contentType: 'text/markdown'
-                });
+                // 手动构建multipart body
+                let body = '';
 
-                // 添加文件名参数
-                formData.append('file_name', data.file_name);
+                // 添加文件名字段
+                body += `--${boundary}\r\n`;
+                body += `Content-Disposition: form-data; name="file_name"\r\n\r\n`;
+                body += `${data.file_name}\r\n`;
 
                 // 添加父节点信息（如果有）
                 if (data.parent_type) {
-                    formData.append('parent_type', data.parent_type);
+                    body += `--${boundary}\r\n`;
+                    body += `Content-Disposition: form-data; name="parent_type"\r\n\r\n`;
+                    body += `${data.parent_type}\r\n`;
                 }
 
                 if (data.parent_node) {
-                    formData.append('parent_node', data.parent_node);
+                    body += `--${boundary}\r\n`;
+                    body += `Content-Disposition: form-data; name="parent_node"\r\n\r\n`;
+                    body += `${data.parent_node}\r\n`;
                 }
 
-                fetchOptions.body = formData;
-                // FormData会自动设置正确的Content-Type和boundary
-                delete fetchOptions.headers['Content-Type'];
+                // 添加文件内容
+                body += `--${boundary}\r\n`;
+                body += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
+                body += `Content-Type: text/markdown\r\n\r\n`;
 
-                console.log('Constructed FormData with file:', data.file_name, 'Size:', fileBuffer.length);
+                // 结束boundary
+                const bodyEnd = `\r\n--${boundary}--\r\n`;
+
+                // 组合完整的body（文本部分 + 二进制文件 + 结束部分）
+                const bodyBuffer = Buffer.concat([
+                    Buffer.from(body, 'utf8'),
+                    fileBuffer,
+                    Buffer.from(bodyEnd, 'utf8')
+                ]);
+
+                fetchOptions.body = bodyBuffer;
+                fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
+
+                console.log('Constructed multipart body, total size:', bodyBuffer.length);
+                console.log('File name:', data.file_name, 'File size:', fileBuffer.length);
 
             } else if (typeof data === 'string') {
                 // 处理其他字符串数据
