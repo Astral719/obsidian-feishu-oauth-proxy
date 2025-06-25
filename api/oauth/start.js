@@ -30,7 +30,8 @@ export default async function handler(req, res) {
 
         // 构建授权URL
         const redirectUri = `${baseUrl}/api/oauth/callback`;
-        const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=${encodeURIComponent('contact:user.base:readonly docx:document drive:drive')}`;
+        const scopes = 'contact:user.base:readonly docx:document drive:drive';
+        const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=${encodeURIComponent(scopes)}`;
 
         console.log(`Starting OAuth flow for state: ${state}`);
         console.log(`Base URL: ${baseUrl}`);
