@@ -23,17 +23,24 @@ export default async function handler(req, res) {
             });
         }
 
+        // 动态获取当前域名
+        const host = req.headers.host;
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const baseUrl = `${protocol}://${host}`;
+
         // 构建授权URL
-        const redirectUri = `${process.env.VERCEL_URL || 'https://your-app.vercel.app'}/api/oauth/callback`;
-        const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=contact:user.base:readonly docx:document drive:drive`;
+        const redirectUri = `${baseUrl}/api/oauth/callback`;
+        const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=${encodeURIComponent('contact:user.base:readonly docx:document drive:drive')}`;
 
         console.log(`Starting OAuth flow for state: ${state}`);
+        console.log(`Base URL: ${baseUrl}`);
+        console.log(`Redirect URI: ${redirectUri}`);
         console.log(`Auth URL: ${authUrl}`);
 
         return res.status(200).json({
             success: true,
             auth_url: authUrl,
-            callback_url: `${process.env.VERCEL_URL || 'https://your-app.vercel.app'}/api/oauth/status/${state}`
+            callback_url: `${baseUrl}/api/oauth/status/${state}`
         });
 
     } catch (error) {
