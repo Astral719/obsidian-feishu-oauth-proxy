@@ -58,97 +58,93 @@ export default async function handler(req, res) {
 
         console.log(`OAuth result stored for state: ${state}`);
 
-        // 方案1：尝试通过postMessage发送给父窗口
-        // 方案2：显示授权码让用户复制
+        // 简化方案：直接显示授权码，优化用户体验
         return res.status(200).send(`
             <html>
-            <head><title>授权成功</title></head>
-            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h2 style="color: green;">✅ 授权成功！</h2>
-                <div id="status">正在尝试自动传递授权码...</div>
+            <head>
+                <title>授权成功</title>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 30px; background: #f8f9fa;">
+                <div style="max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h2 style="color: #28a745; margin-bottom: 20px;">✅ 飞书授权成功！</h2>
 
-                <div id="manual-section" style="display: none; margin-top: 30px;">
-                    <p>如果自动授权失败，请复制以下授权码到Obsidian插件中：</p>
-                    <div style="background: #f5f5f5; padding: 15px; margin: 20px; border-radius: 5px; font-family: monospace; word-break: break-all;">
-                        ${code}
+                    <div style="background: #e9ecef; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0 0 15px 0; font-weight: 600; color: #495057;">请复制以下授权码：</p>
+                        <div id="auth-code" style="background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; word-break: break-all; border: 2px dashed #6c757d; color: #212529; font-weight: bold;">
+                            ${code}
+                        </div>
                     </div>
-                    <button onclick="copyToClipboard('${code}')" style="background: #007acc; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                        复制授权码
+
+                    <button onclick="copyToClipboard('${code}')" style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 500; margin: 10px;">
+                        📋 复制授权码
                     </button>
+
+                    <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <p style="margin: 0; color: #856404; font-size: 14px;">
+                            <strong>下一步：</strong><br>
+                            1. 返回 Obsidian 插件设置页面<br>
+                            2. 点击"手动输入授权码"按钮<br>
+                            3. 粘贴上面的授权码完成授权
+                        </p>
+                    </div>
+
+                    <p style="margin-top: 20px; color: #6c757d; font-size: 12px;">
+                        授权码将在5分钟后过期，请尽快使用
+                    </p>
                 </div>
 
                 <script>
-                    // 方案1: 尝试通过postMessage发送给父窗口
-                    function sendToParent() {
-                        try {
-                            if (window.opener) {
-                                window.opener.postMessage({
-                                    type: 'FEISHU_OAUTH_SUCCESS',
-                                    code: '${code}',
-                                    state: '${state}'
-                                }, '*');
-                                document.getElementById('status').innerHTML = '✅ 授权码已发送，请返回 Obsidian 查看结果。';
-                                setTimeout(() => window.close(), 2000);
-                                return true;
-                            }
-                        } catch (e) {
-                            console.error('Failed to send to parent:', e);
-                        }
-                        return false;
-                    }
-
-                    // 方案2: 使用localStorage存储授权结果
-                    function storeInLocalStorage() {
-                        try {
-                            const authResult = {
-                                type: 'FEISHU_OAUTH_SUCCESS',
-                                code: '${code}',
-                                state: '${state}',
-                                timestamp: Date.now()
-                            };
-                            localStorage.setItem('feishu-oauth-result', JSON.stringify(authResult));
-
-                            // 触发storage事件（如果在同一域名下）
-                            window.dispatchEvent(new StorageEvent('storage', {
-                                key: 'feishu-oauth-result',
-                                newValue: JSON.stringify(authResult),
-                                url: window.location.href
-                            }));
-
-                            document.getElementById('status').innerHTML = '✅ 授权码已保存，请返回 Obsidian 查看结果。';
-                            setTimeout(() => window.close(), 2000);
-                            return true;
-                        } catch (e) {
-                            console.error('Failed to store in localStorage:', e);
-                            return false;
-                        }
-                    }
-
-                    // 依次尝试不同的方案
-                    function attemptAutoTransfer() {
-                        if (sendToParent()) {
-                            return; // postMessage成功
-                        }
-
-                        if (storeInLocalStorage()) {
-                            return; // localStorage成功
-                        }
-
-                        // 所有方案都失败，显示手动复制选项
-                        setTimeout(() => {
-                            document.getElementById('status').innerHTML = '⚠️ 自动传递失败';
-                            document.getElementById('manual-section').style.display = 'block';
-                        }, 1000);
-                    }
-
-                    // 立即尝试自动传递
-                    attemptAutoTransfer();
-
                     function copyToClipboard(text) {
-                        navigator.clipboard.writeText(text).then(function() {
-                            alert('授权码已复制到剪贴板！');
-                        });
+                        // 现代浏览器
+                        if (navigator.clipboard) {
+                            navigator.clipboard.writeText(text).then(function() {
+                                showCopySuccess();
+                            }).catch(function() {
+                                fallbackCopy(text);
+                            });
+                        } else {
+                            fallbackCopy(text);
+                        }
                     }
+
+                    function fallbackCopy(text) {
+                        // 备用复制方法
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.opacity = '0';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                            showCopySuccess();
+                        } catch (err) {
+                            alert('复制失败，请手动选择授权码');
+                        }
+                        document.body.removeChild(textArea);
+                    }
+
+                    function showCopySuccess() {
+                        const button = event.target;
+                        const originalText = button.innerHTML;
+                        button.innerHTML = '✅ 已复制！';
+                        button.style.background = '#28a745';
+                        setTimeout(() => {
+                            button.innerHTML = originalText;
+                            button.style.background = '#007bff';
+                        }, 2000);
+                    }
+
+                    // 自动选中授权码文本，方便手动复制
+                    document.getElementById('auth-code').addEventListener('click', function() {
+                        const range = document.createRange();
+                        range.selectNodeContents(this);
+                        const selection = window.getSelection();
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    });
                 </script>
             </body>
             </html>
