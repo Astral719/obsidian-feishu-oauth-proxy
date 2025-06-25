@@ -38,8 +38,8 @@ export default async function handler(req, res) {
         // 处理请求体
         if (data) {
             if (isFileUpload && data.file_name && data.file_content) {
-                // 处理文件上传：手动构建multipart/form-data（复刻Python实现）
-                const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+                // 处理文件上传：手动构建multipart/form-data（使用飞书官方boundary）
+                const boundary = '---7MA4YWxkTrZu0gW';
 
                 // 将base64内容解码为Buffer
                 const fileBuffer = Buffer.from(data.file_content, 'base64');
@@ -88,8 +88,16 @@ export default async function handler(req, res) {
                 fetchOptions.body = bodyBuffer;
                 fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
 
-                console.log('Constructed multipart body, total size:', bodyBuffer.length);
-                console.log('File name:', data.file_name, 'File size:', fileBuffer.length);
+                console.log('=== Multipart Debug Info ===');
+                console.log('File name:', data.file_name);
+                console.log('Original file size:', fileBuffer.length);
+                console.log('Total body size:', bodyBuffer.length);
+                console.log('Content-Type:', fetchOptions.headers['Content-Type']);
+                console.log('Body preview (first 200 chars):');
+                console.log(bodyBuffer.toString('utf8', 0, Math.min(200, bodyBuffer.length)));
+                console.log('Body preview (last 100 chars):');
+                console.log(bodyBuffer.toString('utf8', Math.max(0, bodyBuffer.length - 100)));
+                console.log('===========================');
 
             } else if (typeof data === 'string') {
                 // 处理其他字符串数据
