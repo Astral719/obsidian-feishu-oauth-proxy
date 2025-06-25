@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { url, method = 'POST', headers = {}, data } = req.body;
+        const { url, method = 'POST', headers = {}, data, isFileUpload = false } = req.body;
 
         if (!url) {
             return res.status(400).json({ error: 'Missing URL parameter' });
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
         console.log('Target URL:', url);
         console.log('Method:', method);
         console.log('Headers:', Object.keys(headers));
+        console.log('Is File Upload:', isFileUpload);
 
         // 准备请求选项
         const fetchOptions = {
@@ -36,8 +37,47 @@ export default async function handler(req, res) {
 
         // 处理请求体
         if (data) {
-            if (typeof data === 'string') {
-                // 处理FormData字符串或其他字符串数据
+            if (isFileUpload && data.file_name && data.file_content) {
+                // 处理文件上传：构建multipart/form-data
+                const boundary = '---7MA4YWxkTrZu0gW';
+                let formData = '';
+
+                // 添加文件名
+                formData += `--${boundary}\r\n`;
+                formData += `Content-Disposition: form-data; name="file_name"\r\n\r\n`;
+                formData += `${data.file_name}\r\n`;
+
+                // 添加文件内容
+                formData += `--${boundary}\r\n`;
+                formData += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
+                formData += `Content-Type: text/markdown\r\n\r\n`;
+
+                // 将base64内容解码为二进制
+                const binaryContent = Buffer.from(data.file_content, 'base64').toString('binary');
+                formData += binaryContent + '\r\n';
+
+                // 添加父节点信息（如果有）
+                if (data.parent_type) {
+                    formData += `--${boundary}\r\n`;
+                    formData += `Content-Disposition: form-data; name="parent_type"\r\n\r\n`;
+                    formData += `${data.parent_type}\r\n`;
+                }
+
+                if (data.parent_node) {
+                    formData += `--${boundary}\r\n`;
+                    formData += `Content-Disposition: form-data; name="parent_node"\r\n\r\n`;
+                    formData += `${data.parent_node}\r\n`;
+                }
+
+                formData += `--${boundary}--\r\n`;
+
+                fetchOptions.body = formData;
+                fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
+
+                console.log('Constructed multipart form data, length:', formData.length);
+
+            } else if (typeof data === 'string') {
+                // 处理其他字符串数据
                 fetchOptions.body = data;
             } else {
                 // 处理JSON数据
