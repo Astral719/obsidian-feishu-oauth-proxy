@@ -65,6 +65,11 @@ export default async function handler(req, res) {
                     body += `${data.parent_node}\r\n`;
                 }
 
+                // 添加文件大小字段（关键！Python版本有这个字段）
+                body += `--${boundary}\r\n`;
+                body += `Content-Disposition: form-data; name="size"\r\n\r\n`;
+                body += `${fileBuffer.length}\r\n`;
+
                 // 添加文件内容
                 body += `--${boundary}\r\n`;
                 body += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
