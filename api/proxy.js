@@ -38,13 +38,13 @@ export default async function handler(req, res) {
         // 处理请求体
         if (data) {
             if (isFileUpload && data.file_name && data.file_content) {
-                // 最简化测试：只包含必需字段
+                // 使用正确的飞书API参数格式
                 const boundary = '---7MA4YWxkTrZu0gW';
 
                 // 将base64内容解码为Buffer
                 const fileBuffer = Buffer.from(data.file_content, 'base64');
 
-                // 最简单的multipart构建 - 只包含file_name和file
+                // 按照飞书官方文档构建multipart
                 let body = '';
 
                 // 1. file_name (必需)
@@ -52,7 +52,28 @@ export default async function handler(req, res) {
                 body += `Content-Disposition: form-data; name="file_name"\r\n\r\n`;
                 body += `${data.file_name}\r\n`;
 
-                // 2. file (必需)
+                // 2. parent_type (必需)
+                if (data.parent_type) {
+                    body += `--${boundary}\r\n`;
+                    body += `Content-Disposition: form-data; name="parent_type"\r\n\r\n`;
+                    body += `${data.parent_type}\r\n`;
+                }
+
+                // 3. parent_node (可选)
+                if (data.parent_node) {
+                    body += `--${boundary}\r\n`;
+                    body += `Content-Disposition: form-data; name="parent_node"\r\n\r\n`;
+                    body += `${data.parent_node}\r\n`;
+                }
+
+                // 4. size (必需)
+                if (data.size) {
+                    body += `--${boundary}\r\n`;
+                    body += `Content-Disposition: form-data; name="size"\r\n\r\n`;
+                    body += `${data.size}\r\n`;
+                }
+
+                // 5. file (必需)
                 body += `--${boundary}\r\n`;
                 body += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
                 body += `Content-Type: text/markdown\r\n\r\n`;
@@ -70,12 +91,14 @@ export default async function handler(req, res) {
                 fetchOptions.body = bodyBuffer;
                 fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
 
-                console.log('=== Simplified Upload Test ===');
+                console.log('=== Correct Feishu API Upload ===');
                 console.log('File name:', data.file_name);
-                console.log('File size:', fileBuffer.length);
+                console.log('Parent type:', data.parent_type);
+                console.log('Parent node:', data.parent_node || 'none');
+                console.log('Size:', data.size);
+                console.log('File buffer size:', fileBuffer.length);
                 console.log('Total body size:', bodyBuffer.length);
-                console.log('Only sending: file_name + file');
-                console.log('===============================');
+                console.log('==================================');
 
             } else if (typeof data === 'string') {
                 // 处理其他字符串数据
