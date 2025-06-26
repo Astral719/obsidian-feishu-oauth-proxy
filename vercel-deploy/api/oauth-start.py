@@ -63,13 +63,11 @@ def handler(request):
             'completed': False
         }
 
-        # 获取部署的域名
-        vercel_url = os.environ.get('VERCEL_URL', 'localhost:3000')
-        if not vercel_url.startswith('http'):
-            vercel_url = f"https://{vercel_url}"
+        # 使用固定的域名
+        base_url = 'https://md2feishu.xinqi.life'
 
         # 构建授权URL
-        redirect_uri = f"{vercel_url}/api/oauth-callback"
+        redirect_uri = f"{base_url}/api/oauth-callback"
         
         auth_params = {
             'app_id': app_id,
@@ -91,7 +89,7 @@ def handler(request):
             'body': json.dumps({
                 'success': True,
                 'auth_url': auth_url,
-                'callback_url': f"{vercel_url}/api/oauth-status?state={state}",
+                'callback_url': f"{base_url}/api/oauth-status?state={state}",
                 'message': 'Please open the auth_url in browser to complete authorization'
             })
         }

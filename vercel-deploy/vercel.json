@@ -1,8 +1,5 @@
 {
   "functions": {
-    "api/**/*.js": {
-      "runtime": "@vercel/node@18"
-    },
     "api/**/*.py": {
       "runtime": "python3.9",
       "maxDuration": 60
