@@ -14,7 +14,10 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { url, method = 'POST', headers = {}, data, isFileUpload = false } = req.body;
+        const { url, method = 'POST', headers = {}, data } = req.body;
+
+        // 按照Python脚本的检测方式
+        const isFileUpload = url.includes('/files/upload_all') && data && data.file_content;
 
         if (!url) {
             return res.status(400).json({ error: 'Missing URL parameter' });
@@ -38,13 +41,13 @@ export default async function handler(req, res) {
         // 处理请求体
         if (data) {
             if (isFileUpload && data.file_name && data.file_content) {
-                // 最基本的参数 - 只发送必需字段
+                // 完全按照Python脚本的参数格式
                 const boundary = '---7MA4YWxkTrZu0gW';
 
                 // 将base64内容解码为Buffer
                 const fileBuffer = Buffer.from(data.file_content, 'base64');
 
-                // 最简单的multipart构建
+                // 按照Python脚本的参数顺序构建multipart
                 let body = '';
 
                 // 1. file_name (必需)
@@ -52,14 +55,24 @@ export default async function handler(req, res) {
                 body += `Content-Disposition: form-data; name="file_name"\r\n\r\n`;
                 body += `${data.file_name}\r\n`;
 
-                // 2. size (必需)
-                if (data.size) {
+                // 2. parent_type (必需，与Python脚本一致)
+                body += `--${boundary}\r\n`;
+                body += `Content-Disposition: form-data; name="parent_type"\r\n\r\n`;
+                body += `${data.parent_type || 'explorer'}\r\n`;
+
+                // 3. size (必需)
+                body += `--${boundary}\r\n`;
+                body += `Content-Disposition: form-data; name="size"\r\n\r\n`;
+                body += `${data.size}\r\n`;
+
+                // 4. parent_node (可选)
+                if (data.parent_node) {
                     body += `--${boundary}\r\n`;
-                    body += `Content-Disposition: form-data; name="size"\r\n\r\n`;
-                    body += `${data.size}\r\n`;
+                    body += `Content-Disposition: form-data; name="parent_node"\r\n\r\n`;
+                    body += `${data.parent_node}\r\n`;
                 }
 
-                // 3. file (必需)
+                // 5. file (必需)
                 body += `--${boundary}\r\n`;
                 body += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
                 body += `Content-Type: text/markdown\r\n\r\n`;
@@ -77,13 +90,14 @@ export default async function handler(req, res) {
                 fetchOptions.body = bodyBuffer;
                 fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
 
-                console.log('=== Minimal Upload Parameters ===');
+                console.log('=== Python Script Compatible Upload ===');
                 console.log('File name:', data.file_name);
+                console.log('Parent type:', data.parent_type || 'explorer');
                 console.log('Size:', data.size);
+                console.log('Parent node:', data.parent_node || 'none');
                 console.log('File buffer size:', fileBuffer.length);
                 console.log('Total body size:', bodyBuffer.length);
-                console.log('Only sending: file_name + size + file');
-                console.log('==================================');
+                console.log('========================================');
 
             } else if (typeof data === 'string') {
                 // 处理其他字符串数据
