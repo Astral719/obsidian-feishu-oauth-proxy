@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-feishu-oauth-proxy",
+  "version": "1.0.0",
+  "description": "Vercel-hosted OAuth proxy for Obsidian Feishu Share plugin",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "obsidian",
+    "feishu",
+    "oauth",
+    "proxy",
+    "vercel"
+  ],
+  "author": "Obsidian Feishu Share",
+  "license": "MIT"
+}

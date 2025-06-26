@@ -1,0 +1,11 @@
+{
+	"id": "obsidian-feishu-share",
+	"name": "飞书分享",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "快速将 Obsidian 中的 Markdown 内容分享到飞书云文档",
+	"author": "AI Assistant",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}
