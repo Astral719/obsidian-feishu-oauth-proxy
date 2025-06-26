@@ -422,7 +422,7 @@ var ManualAuthModal = class extends import_obsidian2.Modal {
 			<ol>
 				<li>\u70B9\u51FB\u4E0B\u65B9\u7684"\u6253\u5F00\u6388\u6743\u9875\u9762"\u6309\u94AE</li>
 				<li>\u5728\u5F39\u51FA\u7684\u98DE\u4E66\u9875\u9762\u4E2D\u767B\u5F55\u5E76\u786E\u8BA4\u6388\u6743</li>
-				<li>\u6388\u6743\u6210\u529F\u540E\uFF0C\u4F1A\u8DF3\u8F6C\u5230\u4E00\u4E2A\u663E\u793A JSON \u6570\u636E\u7684\u9875\u9762</li>
+				<li>\u6388\u6743\u6210\u529F\u540E\uFF0C\u4F1A\u8DF3\u8F6C\u5230\u4E00\u4E2A\u663E\u793A"\u2705 \u6388\u6743\u6210\u529F\uFF01"\u7684\u9875\u9762</li>
 				<li><strong>\u590D\u5236\u6D4F\u89C8\u5668\u5730\u5740\u680F\u7684\u5B8C\u6574URL</strong>\uFF08\u5305\u542B code= \u53C2\u6570\uFF09</li>
 				<li>\u5C06\u5B8C\u6574URL\u7C98\u8D34\u5230\u4E0B\u65B9\u8F93\u5165\u6846\u4E2D</li>
 				<li>\u70B9\u51FB"\u5B8C\u6210\u6388\u6743"\u6309\u94AE</li>
@@ -908,15 +908,18 @@ var FeishuApiService = class {
     }
     const state = this.generateRandomState();
     localStorage.setItem("feishu-oauth-state", state);
+    const proxyUrl = this.settings.proxyUrl || "https://md2feishu.xinqi.life";
+    const redirectUri = `${proxyUrl}/api/oauth-callback`;
     const params = new URLSearchParams({
       app_id: this.settings.appId,
-      redirect_uri: FEISHU_CONFIG.REDIRECT_URI,
+      redirect_uri: redirectUri,
       scope: FEISHU_CONFIG.SCOPES,
       state,
       response_type: "code"
     });
     const authUrl = `${FEISHU_CONFIG.AUTHORIZE_URL}?${params.toString()}`;
     console.log("Generated auth URL:", authUrl);
+    console.log("Using redirect URI:", redirectUri);
     return authUrl;
   }
   /**

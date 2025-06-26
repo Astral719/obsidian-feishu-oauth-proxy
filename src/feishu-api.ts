@@ -41,10 +41,14 @@ export class FeishuApiService {
 		const state = this.generateRandomState();
 		localStorage.setItem('feishu-oauth-state', state);
 
+		// 使用代理服务器的回调地址
+		const proxyUrl = this.settings.proxyUrl || 'https://md2feishu.xinqi.life';
+		const redirectUri = `${proxyUrl}/api/oauth-callback`;
+
 		// 构建授权 URL
 		const params = new URLSearchParams({
 			app_id: this.settings.appId,
-			redirect_uri: FEISHU_CONFIG.REDIRECT_URI,
+			redirect_uri: redirectUri,
 			scope: FEISHU_CONFIG.SCOPES,
 			state: state,
 			response_type: 'code',
@@ -52,6 +56,7 @@ export class FeishuApiService {
 
 		const authUrl = `${FEISHU_CONFIG.AUTHORIZE_URL}?${params.toString()}`;
 		console.log('Generated auth URL:', authUrl);
+		console.log('Using redirect URI:', redirectUri);
 
 		return authUrl;
 	}

@@ -35,7 +35,7 @@ export class ManualAuthModal extends Modal {
 			<ol>
 				<li>点击下方的"打开授权页面"按钮</li>
 				<li>在弹出的飞书页面中登录并确认授权</li>
-				<li>授权成功后，会跳转到一个显示 JSON 数据的页面</li>
+				<li>授权成功后，会跳转到一个显示"✅ 授权成功！"的页面</li>
 				<li><strong>复制浏览器地址栏的完整URL</strong>（包含 code= 参数）</li>
 				<li>将完整URL粘贴到下方输入框中</li>
 				<li>点击"完成授权"按钮</li>
