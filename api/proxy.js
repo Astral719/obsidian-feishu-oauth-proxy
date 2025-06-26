@@ -38,39 +38,21 @@ export default async function handler(req, res) {
         // 处理请求体
         if (data) {
             if (isFileUpload && data.file_name && data.file_content) {
-                // 处理文件上传：手动构建multipart/form-data（使用飞书官方boundary）
+                // 最简化测试：只包含必需字段
                 const boundary = '---7MA4YWxkTrZu0gW';
 
                 // 将base64内容解码为Buffer
                 const fileBuffer = Buffer.from(data.file_content, 'base64');
 
-                // 手动构建multipart body
+                // 最简单的multipart构建 - 只包含file_name和file
                 let body = '';
 
-                // 添加文件名字段
+                // 1. file_name (必需)
                 body += `--${boundary}\r\n`;
                 body += `Content-Disposition: form-data; name="file_name"\r\n\r\n`;
                 body += `${data.file_name}\r\n`;
 
-                // 添加父节点信息（如果有）
-                if (data.parent_type) {
-                    body += `--${boundary}\r\n`;
-                    body += `Content-Disposition: form-data; name="parent_type"\r\n\r\n`;
-                    body += `${data.parent_type}\r\n`;
-                }
-
-                if (data.parent_node) {
-                    body += `--${boundary}\r\n`;
-                    body += `Content-Disposition: form-data; name="parent_node"\r\n\r\n`;
-                    body += `${data.parent_node}\r\n`;
-                }
-
-                // 添加文件大小字段（关键！Python版本有这个字段）
-                body += `--${boundary}\r\n`;
-                body += `Content-Disposition: form-data; name="size"\r\n\r\n`;
-                body += `${fileBuffer.length}\r\n`;
-
-                // 添加文件内容
+                // 2. file (必需)
                 body += `--${boundary}\r\n`;
                 body += `Content-Disposition: form-data; name="file"; filename="${data.file_name}"\r\n`;
                 body += `Content-Type: text/markdown\r\n\r\n`;
@@ -78,7 +60,7 @@ export default async function handler(req, res) {
                 // 结束boundary
                 const bodyEnd = `\r\n--${boundary}--\r\n`;
 
-                // 组合完整的body（文本部分 + 二进制文件 + 结束部分）
+                // 组合完整的body
                 const bodyBuffer = Buffer.concat([
                     Buffer.from(body, 'utf8'),
                     fileBuffer,
@@ -88,16 +70,12 @@ export default async function handler(req, res) {
                 fetchOptions.body = bodyBuffer;
                 fetchOptions.headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
 
-                console.log('=== Multipart Debug Info ===');
+                console.log('=== Simplified Upload Test ===');
                 console.log('File name:', data.file_name);
-                console.log('Original file size:', fileBuffer.length);
+                console.log('File size:', fileBuffer.length);
                 console.log('Total body size:', bodyBuffer.length);
-                console.log('Content-Type:', fetchOptions.headers['Content-Type']);
-                console.log('Body preview (first 200 chars):');
-                console.log(bodyBuffer.toString('utf8', 0, Math.min(200, bodyBuffer.length)));
-                console.log('Body preview (last 100 chars):');
-                console.log(bodyBuffer.toString('utf8', Math.max(0, bodyBuffer.length - 100)));
-                console.log('===========================');
+                console.log('Only sending: file_name + file');
+                console.log('===============================');
 
             } else if (typeof data === 'string') {
                 // 处理其他字符串数据
