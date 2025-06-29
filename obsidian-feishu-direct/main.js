@@ -86,6 +86,9 @@ var FeishuApiService = class {
    * 生成授权 URL
    */
   generateAuthUrl() {
+    console.log("Generating auth URL...");
+    console.log("App ID:", this.settings.appId);
+    console.log("App Secret:", this.settings.appSecret ? "***" : "empty");
     if (!this.settings.appId || !this.settings.appSecret) {
       throw new Error("\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6E\u98DE\u4E66\u5E94\u7528\u7684 App ID \u548C App Secret");
     }
@@ -100,6 +103,7 @@ var FeishuApiService = class {
       response_type: "code"
     });
     const authUrl = `${FEISHU_CONFIG.AUTHORIZE_URL}?${params.toString()}`;
+    console.log("Generated auth URL:", authUrl);
     return authUrl;
   }
   /**
@@ -107,6 +111,7 @@ var FeishuApiService = class {
    */
   async processCallback(callbackUrl) {
     try {
+      console.log("Processing callback URL:", callbackUrl);
       const url = new URL(callbackUrl);
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
@@ -135,6 +140,7 @@ var FeishuApiService = class {
    */
   async handleOAuthCallback(authCode) {
     try {
+      console.log("Processing OAuth callback with code:", authCode);
       if (!this.settings.appId || !this.settings.appSecret) {
         throw new Error("\u5E94\u7528\u914D\u7F6E\u4E0D\u5B8C\u6574");
       }
@@ -161,6 +167,11 @@ var FeishuApiService = class {
    */
   async exchangeCodeForToken(code) {
     try {
+      console.log("Exchanging code for token...");
+      console.log("Using App ID:", this.settings.appId);
+      console.log("Using App Secret:", this.settings.appSecret ? "***" : "empty");
+      console.log("Using code:", code);
+      console.log("First getting app access token...");
       const appTokenResponse = await (0, import_obsidian.requestUrl)({
         url: "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
         method: "POST",
@@ -172,16 +183,20 @@ var FeishuApiService = class {
           app_secret: this.settings.appSecret
         })
       });
+      console.log("App token response:", appTokenResponse.status);
       const appTokenData = appTokenResponse.json || JSON.parse(appTokenResponse.text);
+      console.log("App token data:", appTokenData);
       if (appTokenData.code !== 0) {
         console.error("Failed to get app access token:", appTokenData);
         return { success: false, error: `\u83B7\u53D6\u5E94\u7528\u4EE4\u724C\u5931\u8D25: ${appTokenData.msg}` };
       }
       const appAccessToken = appTokenData.app_access_token;
+      console.log("Got app access token, now exchanging user code...");
       const requestBody = {
         grant_type: "authorization_code",
         code
       };
+      console.log("Request body:", requestBody);
       const response = await (0, import_obsidian.requestUrl)({
         url: FEISHU_CONFIG.TOKEN_URL,
         method: "POST",
@@ -191,19 +206,24 @@ var FeishuApiService = class {
         },
         body: JSON.stringify(requestBody)
       });
+      console.log("Token exchange response status:", response.status);
+      console.log("Token exchange response headers:", response.headers);
       let data;
       if (response.json && typeof response.json === "object") {
         data = response.json;
-        } else if (response.text) {
+        console.log("Using response.json directly:", data);
+      } else if (response.text) {
         const responseText = response.text;
+        console.log("Token exchange response text:", responseText);
         data = JSON.parse(responseText);
       } else {
-        ...");
+        console.log("Trying to call response.json()...");
         data = await response.json();
       }
       if (data.code === 0) {
         this.settings.accessToken = data.data.access_token;
         this.settings.refreshToken = data.data.refresh_token;
+        console.log("Token exchange successful");
         return { success: true };
       } else {
         console.error("Token exchange failed:", data);
@@ -249,35 +269,54 @@ var FeishuApiService = class {
    */
   async shareMarkdown(title, content) {
     try {
+      console.log("=== Starting Complete Feishu Share Process ===");
+      console.log("Title:", title);
+      console.log("Content length:", content.length);
       if (!this.settings.accessToken) {
         throw new Error("\u8BF7\u5148\u5B8C\u6210\u98DE\u4E66\u6388\u6743");
       }
+      console.log("Step 1: Uploading markdown file...");
       const uploadResult = await this.uploadMarkdownFile(title, content);
       if (!uploadResult.success) {
         throw new Error(uploadResult.error || "\u6587\u4EF6\u4E0A\u4F20\u5931\u8D25");
       }
+      console.log("File uploaded successfully, token:", uploadResult.fileToken);
       if (!uploadResult.fileToken) {
         throw new Error("\u6587\u4EF6\u4E0A\u4F20\u6210\u529F\u4F46\u672A\u83B7\u53D6\u5230\u6587\u4EF6\u4EE4\u724C");
       }
       const fallbackFileUrl = `https://feishu.cn/file/${uploadResult.fileToken}`;
+      console.log("Step 2: Attempting import task with 15s timeout...");
+      console.log("File token for import:", uploadResult.fileToken);
       try {
         const cleanTitle = title.endsWith(".md") ? title.slice(0, -3) : title;
+        console.log("Clean title for import:", cleanTitle);
         const importResult = await this.createImportTaskWithCorrectFolder(uploadResult.fileToken, cleanTitle);
+        console.log("Import task creation result:", importResult);
         if (importResult.success && importResult.ticket) {
-          ...");
+          console.log("\u2705 Import task created successfully, ticket:", importResult.ticket);
+          console.log("Step 3: Waiting for import completion (15s timeout)...");
           const finalResult = await this.waitForImportCompletionWithTimeout(importResult.ticket, 15e3);
+          console.log("Import completion result:", finalResult);
           if (finalResult.success && finalResult.documentToken) {
             const docUrl = `https://feishu.cn/docx/${finalResult.documentToken}`;
+            console.log("=== Import Process Completed Successfully ===");
+            console.log("Document token:", finalResult.documentToken);
+            console.log("Document URL:", docUrl);
+            console.log("Step 4: Deleting source file after successful conversion...");
             try {
               await this.deleteSourceFile(uploadResult.fileToken);
-              } catch (deleteError) {
-              }
+              console.log("\u2705 Source file deleted successfully");
+            } catch (deleteError) {
+              console.warn("\u26A0\uFE0F Failed to delete source file:", deleteError.message);
+            }
             return {
               success: true,
               title: cleanTitle,
               url: docUrl
             };
           } else {
+            console.warn("\u26A0\uFE0F Import task failed or timed out, falling back to file URL");
+            console.warn("Final result details:", finalResult);
             return {
               success: true,
               title,
@@ -285,6 +324,8 @@ var FeishuApiService = class {
             };
           }
         } else {
+          console.warn("\u26A0\uFE0F Failed to create import task, falling back to file URL");
+          console.warn("Import result details:", importResult);
           return {
             success: true,
             title,
@@ -292,6 +333,7 @@ var FeishuApiService = class {
           };
         }
       } catch (importError) {
+        console.warn("\u26A0\uFE0F Import process failed, falling back to file URL:", importError.message);
         console.error("Import error details:", importError);
         return {
           success: true,
@@ -354,10 +396,15 @@ var FeishuApiService = class {
    */
   async uploadMarkdownFile(fileName, content) {
     try {
+      console.log("Uploading markdown file:", fileName);
+      console.log("Content length:", content.length);
       const boundary = "---7MA4YWxkTrZu0gW";
       const finalFileName = fileName.endsWith(".md") ? fileName : `${fileName}.md`;
       const utf8Content = new TextEncoder().encode(content);
       const contentLength = utf8Content.length;
+      console.log("File name:", finalFileName);
+      console.log("UTF-8 content length:", contentLength);
+      console.log("Original content length:", content.length);
       const parts = [];
       parts.push(`--${boundary}`);
       parts.push(`Content-Disposition: form-data; name="file_name"`);
@@ -376,9 +423,9 @@ var FeishuApiService = class {
         parts.push(`Content-Disposition: form-data; name="parent_node"`);
         parts.push("");
         parts.push(this.settings.defaultFolderId);
-        ");
+        console.log("\u{1F4C1} Upload: Using custom folder:", this.settings.defaultFolderId, "(" + this.settings.defaultFolderName + ")");
       } else {
-        - no parent_node specified");
+        console.log("\u{1F4C1} Upload: Using root folder (\u6211\u7684\u7A7A\u95F4) - no parent_node specified");
       }
       parts.push(`--${boundary}`);
       parts.push(`Content-Disposition: form-data; name="file"; filename="${finalFileName}"`);
@@ -398,6 +445,8 @@ var FeishuApiService = class {
       bodyBytes.set(utf8Content, offset);
       offset += utf8Content.length;
       bodyBytes.set(endBoundaryBytes, offset);
+      console.log("Uploading to:", FEISHU_CONFIG.UPLOAD_URL);
+      console.log("Total body size:", bodyBytes.length);
       const response = await (0, import_obsidian.requestUrl)({
         url: FEISHU_CONFIG.UPLOAD_URL,
         method: "POST",
@@ -408,6 +457,7 @@ var FeishuApiService = class {
         body: bodyBytes.buffer
       });
       const data = response.json || JSON.parse(response.text);
+      console.log("Upload response:", data);
       if (data.code === 0) {
         const fileUrl = `https://feishu.cn/file/${data.data.file_token}`;
         return {
@@ -454,6 +504,7 @@ var FeishuApiService = class {
       if (data.code === 0) {
         this.settings.accessToken = data.data.access_token;
         this.settings.refreshToken = data.data.refresh_token;
+        console.log("Token refreshed successfully");
         return true;
       } else {
         console.error("Token refresh failed:", data);
@@ -489,6 +540,7 @@ var FeishuApiService = class {
       if (data.code === 0) {
         return true;
       } else if (data.code === 99991664) {
+        console.log("Token expired, trying to refresh...");
         return await this.refreshAccessToken();
       } else {
         return false;
@@ -503,6 +555,9 @@ var FeishuApiService = class {
    */
   async createImportTaskWithCorrectFolder(fileToken, title) {
     try {
+      console.log("Creating import task for file:", fileToken, "title:", title);
+      console.log("Current settings - defaultFolderId:", this.settings.defaultFolderId);
+      console.log("Current settings - defaultFolderName:", this.settings.defaultFolderName);
       const importData = {
         file_extension: "md",
         file_token: fileToken,
@@ -516,11 +571,11 @@ var FeishuApiService = class {
         }
       };
       if (this.settings.defaultFolderId && this.settings.defaultFolderId !== "" && this.settings.defaultFolderId !== "nodcn2EG5YG1i5Rsh5uZs0FsUje") {
-        ");
+        console.log("\u2705 Import: Using custom folder:", this.settings.defaultFolderId, "(" + this.settings.defaultFolderName + ")");
       } else {
-        ");
+        console.log("\u2705 Import: Using default root folder (\u6211\u7684\u7A7A\u95F4)");
       }
-      );
+      console.log("Import task request:", JSON.stringify(importData, null, 2));
       const response = await (0, import_obsidian.requestUrl)({
         url: `${FEISHU_CONFIG.BASE_URL}/drive/v1/import_tasks`,
         method: "POST",
@@ -531,7 +586,7 @@ var FeishuApiService = class {
         body: JSON.stringify(importData)
       });
       const data = response.json || JSON.parse(response.text);
-      );
+      console.log("Import task response:", JSON.stringify(data, null, 2));
       if (data.code === 0) {
         return {
           success: true,
@@ -560,26 +615,31 @@ var FeishuApiService = class {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const elapsedTime = Date.now() - startTime;
       if (elapsedTime >= timeoutMs) {
+        console.warn(`Import timeout after ${elapsedTime}ms`);
         return {
           success: false,
           error: `\u5BFC\u5165\u4EFB\u52A1\u8D85\u65F6 (${timeoutMs}ms)`
         };
       }
+      console.log(`Checking import status, attempt ${attempt}/${maxAttempts}, elapsed: ${elapsedTime}ms...`);
       try {
         const result = await this.checkImportStatus(ticket);
         if (result.success && (result.status === 3 || result.status === 0)) {
           if (result.documentToken) {
             const totalTime = Date.now() - startTime;
+            console.log(`Import completed successfully in ${totalTime}ms, document token:`, result.documentToken);
             return {
               success: true,
               documentToken: result.documentToken
             };
           } else {
-            }
+            console.warn("Import completed but no document token returned, continuing to wait...");
+          }
         } else if (result.success && result.status === 2) {
-          , but continuing to wait...`);
+          console.warn(`Import shows failure status (${result.status}), but continuing to wait...`);
           if (attempt <= 8) {
-            } else {
+            console.log(`Attempt ${attempt}/8: Ignoring failure status, continuing to wait...`);
+          } else {
             console.error("Import failed after extended waiting");
             return {
               success: false,
@@ -587,7 +647,8 @@ var FeishuApiService = class {
             };
           }
         } else {
-          }
+          console.log(`Job status: ${result.status}, continuing to wait...`);
+        }
         if (attempt < maxAttempts) {
           const delay = this.getDelayForAttempt(attempt);
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -655,6 +716,7 @@ var FeishuApiService = class {
    */
   async deleteSourceFile(fileToken) {
     try {
+      console.log("\u{1F5D1}\uFE0F Deleting source file:", fileToken);
       let response;
       try {
         response = await (0, import_obsidian.requestUrl)({
@@ -667,6 +729,7 @@ var FeishuApiService = class {
           body: JSON.stringify({})
         });
       } catch (trashError) {
+        console.warn("\u26A0\uFE0F Trash method failed, trying direct delete...");
         response = await (0, import_obsidian.requestUrl)({
           url: `${FEISHU_CONFIG.BASE_URL}/drive/v1/files/${fileToken}?type=file`,
           method: "DELETE",
@@ -676,17 +739,22 @@ var FeishuApiService = class {
           }
         });
       }
+      console.log("Delete response status:", response.status);
+      console.log("Delete response:", response.text);
       if (response.status !== 200) {
         throw new Error(`\u5220\u9664\u8BF7\u6C42\u5931\u8D25\uFF0C\u72B6\u6001\u7801: ${response.status}`);
       }
       const data = response.json || JSON.parse(response.text);
       if (data.code !== 0) {
-        ");
+        console.warn("\u26A0\uFE0F Delete API returned non-zero code:", data.code, data.msg);
+        console.log("\u{1F4DD} Source file deletion completed (may have been moved to trash)");
       } else {
-        }
+        console.log("\u2705 Source file deleted successfully");
+      }
     } catch (error) {
       console.error("\u274C Delete source file error:", error);
-      }
+      console.log("\u26A0\uFE0F Source file deletion failed, but continuing...");
+    }
   }
 };
 
@@ -706,7 +774,8 @@ var ManualAuthModal = class extends import_obsidian2.Modal {
     contentEl.empty();
     contentEl.createEl("h2", { text: "\u{1F510} \u98DE\u4E66\u624B\u52A8\u6388\u6743" });
     const descEl = contentEl.createDiv("setting-item-description");
-    descEldescEl.textContent = `
+    descEl.style.marginBottom = "20px";
+    descEl.innerHTML = `
 			<p><strong>\u{1F680} \u7B80\u5316\u6388\u6743\u6D41\u7A0B - \u53EA\u9700\u590D\u5236\u7C98\u8D34URL\uFF1A</strong></p>
 			<ol>
 				<li>\u70B9\u51FB\u4E0B\u65B9\u7684"\u6253\u5F00\u6388\u6743\u9875\u9762"\u6309\u94AE</li>
@@ -736,7 +805,9 @@ var ManualAuthModal = class extends import_obsidian2.Modal {
       text.setPlaceholder("\u7C98\u8D34\u5B8C\u6574\u7684\u56DE\u8C03URL\uFF0C\u4F8B\u5982\uFF1Ahttps://example.com/callback?code=xxx&state=xxx").setValue(callbackUrl).onChange((value) => {
         callbackUrl = value.trim();
       });
-      text.inputEltext.inputEl});
+      text.inputEl.style.width = "100%";
+      text.inputEl.style.height = "80px";
+    });
     new import_obsidian2.Setting(contentEl).setName("\u7B2C\u4E09\u6B65\uFF1A\u5B8C\u6210\u6388\u6743").setDesc("\u89E3\u6790\u56DE\u8C03URL\u5E76\u5B8C\u6210\u6388\u6743\u6D41\u7A0B").addButton((button) => {
       button.setButtonText("\u2705 \u5B8C\u6210\u6388\u6743").setCta().onClick(async () => {
         await this.processCallback(callbackUrl);
@@ -803,8 +874,20 @@ var FolderSelectModal = class extends import_obsidian3.Modal {
     contentEl.createEl("h2", { text: "\u9009\u62E9\u6587\u4EF6\u5939" });
     this.createBreadcrumb(contentEl);
     const listContainer = contentEl.createDiv("folder-list-container");
-    listContainerconst buttonContainer = contentEl.createDiv("button-container");
-    buttonContainerconst selectButton = buttonContainer.createEl("button", {
+    listContainer.style.cssText = `
+			max-height: 400px;
+			overflow-y: auto;
+			border: 1px solid var(--background-modifier-border);
+			border-radius: 8px;
+			margin: 16px 0;
+		`;
+    const buttonContainer = contentEl.createDiv("button-container");
+    buttonContainer.style.cssText = `
+			display: flex;
+			justify-content: space-between;
+			margin-top: 16px;
+		`;
+    const selectButton = buttonContainer.createEl("button", {
       text: "\u9009\u62E9\u5F53\u524D\u6587\u4EF6\u5939",
       cls: "mod-cta"
     });
@@ -826,17 +909,41 @@ var FolderSelectModal = class extends import_obsidian3.Modal {
    */
   createBreadcrumb(containerEl) {
     const breadcrumbEl = containerEl.createDiv("folder-breadcrumb");
-    breadcrumbElconst rootEl = breadcrumbEl.createSpan("breadcrumb-item");
+    breadcrumbEl.style.cssText = `
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: 16px 0;
+			padding: 8px 12px;
+			background: var(--background-secondary);
+			border-radius: 6px;
+			font-size: 14px;
+		`;
+    const rootEl = breadcrumbEl.createSpan("breadcrumb-item");
     rootEl.textContent = "\u6211\u7684\u7A7A\u95F4";
-    rootElrootEl.onclick = () => this.navigateToRoot();
+    rootEl.style.cssText = `
+			cursor: pointer;
+			color: var(--text-accent);
+			text-decoration: underline;
+		`;
+    rootEl.onclick = () => this.navigateToRoot();
     this.currentPath.forEach((folder, index) => {
       breadcrumbEl.createSpan("breadcrumb-separator").textContent = " / ";
       const folderEl = breadcrumbEl.createSpan("breadcrumb-item");
       folderEl.textContent = folder.name;
       if (index < this.currentPath.length - 1) {
-        folderElfolderEl.onclick = () => this.navigateToFolder(index);
+        folderEl.style.cssText = `
+					cursor: pointer;
+					color: var(--text-accent);
+					text-decoration: underline;
+				`;
+        folderEl.onclick = () => this.navigateToFolder(index);
       } else {
-        folderEl}
+        folderEl.style.cssText = `
+					font-weight: bold;
+					color: var(--text-normal);
+				`;
+      }
     });
   }
   /**
@@ -849,7 +956,12 @@ var FolderSelectModal = class extends import_obsidian3.Modal {
     containerEl.empty();
     const loadingEl = containerEl.createDiv("loading-indicator");
     loadingEl.textContent = "\u6B63\u5728\u52A0\u8F7D\u6587\u4EF6\u5939...";
-    loadingEltry {
+    loadingEl.style.cssText = `
+			text-align: center;
+			padding: 20px;
+			color: var(--text-muted);
+		`;
+    try {
       const parentFolderId = this.currentPath.length > 0 ? this.currentPath[this.currentPath.length - 1].folder_token || this.currentPath[this.currentPath.length - 1].token : void 0;
       const response = await this.feishuApi.getFolderList(parentFolderId);
       this.folders = response.data.folders;
@@ -860,7 +972,12 @@ var FolderSelectModal = class extends import_obsidian3.Modal {
       containerEl.empty();
       const errorEl = containerEl.createDiv("error-message");
       errorEl.textContent = `\u52A0\u8F7D\u5931\u8D25: ${error.message}`;
-      errorEl} finally {
+      errorEl.style.cssText = `
+				text-align: center;
+				padding: 20px;
+				color: var(--text-error);
+			`;
+    } finally {
       this.loading = false;
     }
   }
@@ -871,18 +988,41 @@ var FolderSelectModal = class extends import_obsidian3.Modal {
     if (this.folders.length === 0) {
       const emptyEl = containerEl.createDiv("empty-message");
       emptyEl.textContent = "\u6B64\u6587\u4EF6\u5939\u4E3A\u7A7A";
-      emptyElreturn;
+      emptyEl.style.cssText = `
+				text-align: center;
+				padding: 20px;
+				color: var(--text-muted);
+			`;
+      return;
     }
     this.folders.forEach((folder) => {
       const folderEl = containerEl.createDiv("folder-item");
-      folderElconst iconEl = folderEl.createSpan("folder-icon");
+      folderEl.style.cssText = `
+				display: flex;
+				align-items: center;
+				padding: 12px 16px;
+				cursor: pointer;
+				border-bottom: 1px solid var(--background-modifier-border);
+				transition: background-color 0.2s;
+			`;
+      const iconEl = folderEl.createSpan("folder-icon");
       iconEl.textContent = "\u{1F4C1}";
-      iconElconst nameEl = folderEl.createSpan("folder-name");
+      iconEl.style.cssText = `
+				margin-right: 12px;
+				font-size: 16px;
+			`;
+      const nameEl = folderEl.createSpan("folder-name");
       nameEl.textContent = folder.name;
-      nameElfolderEl.onmouseenter = () => {
-        folderEl};
+      nameEl.style.cssText = `
+				flex: 1;
+				font-size: 14px;
+			`;
+      folderEl.onmouseenter = () => {
+        folderEl.style.backgroundColor = "var(--background-modifier-hover)";
+      };
       folderEl.onmouseleave = () => {
-        folderEl};
+        folderEl.style.backgroundColor = "";
+      };
       folderEl.onclick = () => {
         this.enterFolder(folder);
       };
@@ -957,39 +1097,45 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "\u98DE\u4E66\u5206\u4EAB\u8BBE\u7F6E" });
     const descEl = containerEl.createDiv("setting-item-description");
-    descEl.textContent = `
+    descEl.innerHTML = `
 			<p>\u76F4\u8FDE\u98DE\u4E66API\uFF0C\u56DE\u8C03\u5730\u5740\u4EC5\u4E2D\u8F6C\u65E0\u8BB0\u5F55\u3002</p>
 			<p><strong>\u7279\u70B9\uFF1A</strong>\u65E0\u4F9D\u8D56\u3001\u66F4\u5B89\u5168\u3001\u54CD\u5E94\u66F4\u5FEB</p>
 		`;
     containerEl.createEl("h3", { text: "\u{1F527} \u5E94\u7528\u914D\u7F6E" });
     new import_obsidian4.Setting(containerEl).setName("App ID").setDesc("\u98DE\u4E66\u5E94\u7528\u7684 App ID").addText((text) => text.setPlaceholder("\u8F93\u5165\u98DE\u4E66\u5E94\u7528\u7684 App ID").setValue(this.plugin.settings.appId).onChange(async (value) => {
+      console.log("Setting App ID:", value);
       this.plugin.settings.appId = value.trim();
       await this.plugin.saveSettings();
-      }));
+      console.log("App ID saved:", this.plugin.settings.appId);
+    }));
     new import_obsidian4.Setting(containerEl).setName("App Secret").setDesc("\u98DE\u4E66\u5E94\u7528\u7684 App Secret").addText((text) => {
       text.setPlaceholder("\u8F93\u5165\u98DE\u4E66\u5E94\u7528\u7684 App Secret").setValue(this.plugin.settings.appSecret).onChange(async (value) => {
+        console.log("Setting App Secret:", value ? "***" : "empty");
         this.plugin.settings.appSecret = value.trim();
         await this.plugin.saveSettings();
-        });
+        console.log("App Secret saved:", this.plugin.settings.appSecret ? "***" : "empty");
+      });
       text.inputEl.type = "password";
     });
     new import_obsidian4.Setting(containerEl).setName("OAuth\u56DE\u8C03\u5730\u5740").setDesc("obsidian\u9700web\u56DE\u8C03\u4E2D\u8F6C\uFF0C\u4F8B\u5982\uFF1Ahttps://md2feishu.xinqi.life/oauth-callback").addText((text) => text.setPlaceholder("https://md2feishu.xinqi.life/oauth-callback").setValue(this.plugin.settings.callbackUrl).onChange(async (value) => {
+      console.log("Setting callback URL:", value);
       this.plugin.settings.callbackUrl = value.trim();
       await this.plugin.saveSettings();
-      }));
+      console.log("Callback URL saved:", this.plugin.settings.callbackUrl);
+    }));
     containerEl.createEl("h3", { text: "\u{1F510} \u6388\u6743\u7BA1\u7406" });
     const authStatusEl = containerEl.createDiv("setting-item");
     const authStatusInfo = authStatusEl.createDiv("setting-item-info");
     authStatusInfo.createDiv("setting-item-name").setText("\u6388\u6743\u72B6\u6001");
     const statusDesc = authStatusInfo.createDiv("setting-item-description");
     if (this.plugin.settings.userInfo) {
-      statusDesc.textContent = `
+      statusDesc.innerHTML = `
 				<span style="color: var(--text-success);">\u2705 \u5DF2\u6388\u6743</span><br>
 				<strong>\u7528\u6237\uFF1A</strong>${this.plugin.settings.userInfo.name}<br>
 				<strong>\u90AE\u7BB1\uFF1A</strong>${this.plugin.settings.userInfo.email}
 			`;
     } else {
-      statusDesc.textContent = '<span style="color: var(--text-error);">\u274C \u672A\u6388\u6743</span>';
+      statusDesc.innerHTML = '<span style="color: var(--text-error);">\u274C \u672A\u6388\u6743</span>';
     }
     new import_obsidian4.Setting(containerEl).setName("\u{1F680} \u4E00\u952E\u6388\u6743\uFF08\u63A8\u8350\uFF09").setDesc("\u81EA\u52A8\u6253\u5F00\u6D4F\u89C8\u5668\u5B8C\u6210\u6388\u6743\uFF0C\u901A\u8FC7\u4E91\u7AEF\u56DE\u8C03\u81EA\u52A8\u8FD4\u56DE\u6388\u6743\u7ED3\u679C\uFF0C\u65E0\u9700\u624B\u52A8\u64CD\u4F5C").addButton((button) => {
       button.setButtonText("\u{1F680} \u4E00\u952E\u6388\u6743").setCta().onClick(() => {
@@ -1024,7 +1170,7 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     }
     containerEl.createEl("h3", { text: "\u{1F4D6} \u4F7F\u7528\u8BF4\u660E" });
     const usageEl = containerEl.createDiv("setting-item-description");
-    usageEl.textContent = `
+    usageEl.innerHTML = `
 			<ol>
 				<li><strong>\u914D\u7F6E\u5E94\u7528\uFF1A</strong>\u5728\u98DE\u4E66\u5F00\u653E\u5E73\u53F0\u521B\u5EFA\u5E94\u7528\uFF0C\u83B7\u53D6App ID\u548CApp Secret</li>
 				<li><strong>\u914D\u7F6E\u56DE\u8C03\uFF1A</strong>\u5728\u98DE\u4E66\u5E94\u7528\u4E2D\u6DFB\u52A0\u56DE\u8C03\u5730\u5740\uFF1A<code>https://md2feishu.xinqi.life/oauth-callback</code></li>
@@ -1052,17 +1198,26 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
 		`;
   }
   startAutoAuth() {
+    console.log("Starting auto auth...");
+    console.log("Current settings:", {
+      appId: this.plugin.settings.appId,
+      appSecret: this.plugin.settings.appSecret ? "***" : "empty",
+      hasUserInfo: !!this.plugin.settings.userInfo
+    });
     if (!this.plugin.settings.appId || !this.plugin.settings.appSecret) {
       new import_obsidian4.Notice("\u274C \u8BF7\u5148\u914D\u7F6E App ID \u548C App Secret");
       console.error("Missing App ID or App Secret");
       return;
     }
     this.plugin.feishuApi.updateSettings(this.plugin.settings);
+    console.log("Updated API service settings");
     try {
       const authUrl = this.plugin.feishuApi.generateAuthUrl();
+      console.log("Opening auth URL:", authUrl);
       window.open(authUrl, "_blank");
       new import_obsidian4.Notice("\u{1F504} \u5DF2\u6253\u5F00\u6D4F\u89C8\u5668\u8FDB\u884C\u6388\u6743\uFF0C\u5B8C\u6210\u540E\u5C06\u81EA\u52A8\u8FD4\u56DEObsidian");
       const successHandler = () => {
+        console.log("Auto auth success event received");
         this.display();
         window.removeEventListener("feishu-auth-success", successHandler);
       };
@@ -1073,16 +1228,24 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     }
   }
   startManualAuth() {
+    console.log("Starting manual auth...");
+    console.log("Current settings:", {
+      appId: this.plugin.settings.appId,
+      appSecret: this.plugin.settings.appSecret ? "***" : "empty",
+      hasUserInfo: !!this.plugin.settings.userInfo
+    });
     if (!this.plugin.settings.appId || !this.plugin.settings.appSecret) {
       new import_obsidian4.Notice("\u274C \u8BF7\u5148\u914D\u7F6E App ID \u548C App Secret");
       console.error("Missing App ID or App Secret");
       return;
     }
     this.plugin.feishuApi.updateSettings(this.plugin.settings);
+    console.log("Updated API service settings");
     const modal = new ManualAuthModal(
       this.app,
       this.plugin.feishuApi,
       async () => {
+        console.log("Auth success callback triggered");
         await this.plugin.saveSettings();
         this.display();
       }
@@ -1098,14 +1261,21 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
       this.plugin.feishuApi,
       async (selectedFolder) => {
         if (selectedFolder) {
+          console.log("\u{1F4C1} Folder selected:", selectedFolder);
+          console.log("\u{1F4C1} Folder token:", selectedFolder.folder_token || selectedFolder.token);
+          console.log("\u{1F4C1} Folder name:", selectedFolder.name);
           this.plugin.settings.defaultFolderId = selectedFolder.folder_token || selectedFolder.token || "";
           this.plugin.settings.defaultFolderName = selectedFolder.name;
         } else {
-          ");
+          console.log("\u{1F4C1} Root folder selected (\u6211\u7684\u7A7A\u95F4)");
           this.plugin.settings.defaultFolderId = "";
           this.plugin.settings.defaultFolderName = "\u6211\u7684\u7A7A\u95F4";
         }
         await this.plugin.saveSettings();
+        console.log("\u{1F4C1} Settings saved:", {
+          defaultFolderId: this.plugin.settings.defaultFolderId,
+          defaultFolderName: this.plugin.settings.defaultFolderName
+        });
         new import_obsidian4.Notice("\u2705 \u9ED8\u8BA4\u6587\u4EF6\u5939\u8BBE\u7F6E\u5DF2\u4FDD\u5B58");
         this.display();
       }
@@ -1237,10 +1407,12 @@ ${formula}
 // src/main.ts
 var FeishuSharePlugin = class extends import_obsidian5.Plugin {
   async onload() {
+    console.log("Loading Feishu Share Direct Plugin");
     await this.loadSettings();
     this.feishuApi = new FeishuApiService(this.settings);
     this.markdownProcessor = new MarkdownProcessor();
     this.registerObsidianProtocolHandler("feishu-auth", (params) => {
+      console.log("Received OAuth callback via protocol:", params);
       this.handleOAuthCallback(params);
     });
     this.addSettingTab(new FeishuSettingTab(this.app, this));
@@ -1271,23 +1443,42 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
         });
       })
     );
-    }
+    console.log("Feishu Share Direct Plugin loaded successfully");
+  }
   onunload() {
-    }
+    console.log("Unloading Feishu Share Direct Plugin");
+  }
   async loadSettings() {
     const loadedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    }
+    console.log("Settings loaded:", {
+      appId: this.settings.appId,
+      appSecret: this.settings.appSecret ? "***" : "empty",
+      hasUserInfo: !!this.settings.userInfo,
+      defaultFolderId: this.settings.defaultFolderId,
+      defaultFolderName: this.settings.defaultFolderName,
+      loadedData
+    });
+  }
   async saveSettings() {
+    console.log("Saving settings:", {
+      appId: this.settings.appId,
+      appSecret: this.settings.appSecret ? "***" : "empty",
+      hasUserInfo: !!this.settings.userInfo,
+      defaultFolderId: this.settings.defaultFolderId,
+      defaultFolderName: this.settings.defaultFolderName
+    });
     await this.saveData(this.settings);
     if (this.feishuApi) {
       this.feishuApi.updateSettings(this.settings);
     }
-    }
+    console.log("Settings saved successfully");
+  }
   /**
    * 处理OAuth回调
    */
   async handleOAuthCallback(params) {
+    console.log("Processing OAuth callback...", params);
     if (params.code) {
       new import_obsidian5.Notice("\u{1F504} \u6B63\u5728\u5904\u7406\u6388\u6743\u56DE\u8C03...");
       try {
@@ -1336,62 +1527,167 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
       new import_obsidian5.Notice("\u{1F504} \u6B63\u5728\u5206\u4EAB\u5230\u98DE\u4E66...");
       const rawContent = await this.app.vault.read(file);
       const title = file.basename;
+      console.log("=== Starting Feishu Share ===");
+      console.log("File:", file.path);
+      console.log("Title:", title);
+      console.log("Raw content length:", rawContent.length);
+      console.log("Processing markdown content...");
       const processedContent = this.markdownProcessor.processComplete(rawContent);
+      console.log("Processed content length:", processedContent.length);
       const result = await this.feishuApi.shareMarkdown(title, processedContent);
       if (result.success) {
+        console.log("Share successful:", result);
         if (result.url) {
+          console.log("\u{1F4CB} \u6587\u6863\u94FE\u63A5:", result.url);
           const linkNotice = new import_obsidian5.Notice("", 1e4);
           linkNotice.noticeEl.empty();
-          linkNotice.noticeElconst container = linkNotice.noticeEl.createDiv("feishu-success-container");
-          containerconst header = container.createDiv("feishu-success-header");
-          headerconst iconContainer = header.createDiv("feishu-icon-container");
-          iconContainerconst icon = iconContainer.createEl("span", {
+          linkNotice.noticeEl.style.cssText = `
+						background: transparent !important;
+						border: none !important;
+						box-shadow: none !important;
+						padding: 0 !important;
+						margin: 0 !important;
+					`;
+          const container = linkNotice.noticeEl.createDiv("feishu-success-container");
+          container.style.cssText = `
+						position: relative;
+						display: flex;
+						flex-direction: column;
+						gap: 16px;
+						padding: 20px;
+						background: var(--background-primary);
+						border-radius: 12px;
+						border: 1px solid var(--background-modifier-border);
+						box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+						min-width: 320px;
+						max-width: 400px;
+					`;
+          const header = container.createDiv("feishu-success-header");
+          header.style.cssText = `
+						display: flex;
+						align-items: center;
+						gap: 12px;
+					`;
+          const iconContainer = header.createDiv("feishu-icon-container");
+          iconContainer.style.cssText = `
+						width: 48px;
+						height: 48px;
+						background: linear-gradient(135deg, #4CAF50, #45a049);
+						border-radius: 50%;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+					`;
+          const icon = iconContainer.createEl("span", {
             text: "\u2713",
             cls: "feishu-success-icon"
           });
-          iconconst headerText = header.createDiv("feishu-header-text");
-          headerTextconst title2 = headerText.createEl("div", {
+          icon.style.cssText = `
+						font-size: 24px;
+						font-weight: bold;
+						color: white;
+					`;
+          const headerText = header.createDiv("feishu-header-text");
+          headerText.style.cssText = `
+						flex: 1;
+					`;
+          const title2 = headerText.createEl("div", {
             text: "\u5206\u4EAB\u6210\u529F\uFF01",
             cls: "feishu-success-title"
           });
-          title2const subtitle = headerText.createEl("div", {
+          title2.style.cssText = `
+						font-size: 18px;
+						font-weight: 600;
+						color: var(--text-normal);
+						margin-bottom: 4px;
+					`;
+          const subtitle = headerText.createEl("div", {
             text: `\u6587\u6863\uFF1A${result.title}`,
             cls: "feishu-success-subtitle"
           });
-          subtitleconst buttonGroup = container.createDiv("feishu-button-group");
-          buttonGroupconst copyBtn = buttonGroup.createEl("button", {
+          subtitle.style.cssText = `
+						font-size: 14px;
+						color: var(--text-muted);
+						line-height: 1.4;
+					`;
+          const buttonGroup = container.createDiv("feishu-button-group");
+          buttonGroup.style.cssText = `
+						display: flex;
+						gap: 12px;
+					`;
+          const copyBtn = buttonGroup.createEl("button", {
             text: "\u{1F4CB} \u590D\u5236\u94FE\u63A5",
             cls: "feishu-copy-btn"
           });
-          copyBtncopyBtn.onmouseenter = () => {
-            copyBtncopyBtn};
+          copyBtn.style.cssText = `
+						flex: 1;
+						padding: 12px 16px;
+						background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+						color: var(--text-on-accent);
+						border: none;
+						border-radius: 8px;
+						cursor: pointer;
+						font-size: 14px;
+						font-weight: 500;
+						transition: all 0.3s ease;
+						box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+					`;
+          copyBtn.onmouseenter = () => {
+            copyBtn.style.transform = "translateY(-2px)";
+            copyBtn.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.15)";
+          };
           copyBtn.onmouseleave = () => {
-            copyBtncopyBtn};
+            copyBtn.style.transform = "translateY(0)";
+            copyBtn.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
+          };
           copyBtn.onclick = async () => {
             try {
               if (result.url) {
                 await navigator.clipboard.writeText(result.url);
-                copyBtn.textContent = "\u2705 \u5DF2\u590D\u5236";
-                copyBtnsetTimeout(() => {
-                  copyBtn.textContent = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
-                  copyBtn}, 2e3);
+                copyBtn.innerHTML = "\u2705 \u5DF2\u590D\u5236";
+                copyBtn.style.background = "linear-gradient(135deg, #4CAF50, #45a049)";
+                setTimeout(() => {
+                  copyBtn.innerHTML = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
+                  copyBtn.style.background = "linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))";
+                }, 2e3);
               }
             } catch (error) {
               console.error("\u590D\u5236\u5931\u8D25:", error);
-              copyBtn.textContent = "\u274C \u590D\u5236\u5931\u8D25";
-              copyBtnsetTimeout(() => {
-                copyBtn.textContent = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
-                copyBtn}, 2e3);
+              copyBtn.innerHTML = "\u274C \u590D\u5236\u5931\u8D25";
+              copyBtn.style.background = "linear-gradient(135deg, #f44336, #d32f2f)";
+              setTimeout(() => {
+                copyBtn.innerHTML = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
+                copyBtn.style.background = "linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))";
+              }, 2e3);
             }
           };
           const openBtn = buttonGroup.createEl("button", {
             text: "\u{1F517} \u6253\u5F00",
             cls: "feishu-open-btn"
           });
-          openBtnopenBtn.onmouseenter = () => {
-            openBtnopenBtnopenBtn};
+          openBtn.style.cssText = `
+						padding: 12px 16px;
+						background: var(--background-secondary);
+						color: var(--text-normal);
+						border: 1px solid var(--background-modifier-border);
+						border-radius: 8px;
+						cursor: pointer;
+						font-size: 14px;
+						font-weight: 500;
+						transition: all 0.3s ease;
+						min-width: 80px;
+					`;
+          openBtn.onmouseenter = () => {
+            openBtn.style.background = "var(--background-modifier-hover)";
+            openBtn.style.transform = "translateY(-2px)";
+            openBtn.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+          };
           openBtn.onmouseleave = () => {
-            openBtnopenBtnopenBtn};
+            openBtn.style.background = "var(--background-secondary)";
+            openBtn.style.transform = "translateY(0)";
+            openBtn.style.boxShadow = "none";
+          };
           openBtn.onclick = () => {
             if (result.url) {
               window.open(result.url, "_blank");
@@ -1401,10 +1697,31 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
             text: "\xD7",
             cls: "feishu-close-btn"
           });
-          closeBtncloseBtn.onmouseenter = () => {
-            closeBtncloseBtn};
+          closeBtn.style.cssText = `
+						position: absolute;
+						top: 8px;
+						right: 8px;
+						width: 24px;
+						height: 24px;
+						background: transparent;
+						border: none;
+						border-radius: 50%;
+						cursor: pointer;
+						font-size: 16px;
+						color: var(--text-muted);
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						transition: all 0.2s ease;
+					`;
+          closeBtn.onmouseenter = () => {
+            closeBtn.style.background = "var(--background-modifier-hover)";
+            closeBtn.style.color = "var(--text-normal)";
+          };
           closeBtn.onmouseleave = () => {
-            closeBtncloseBtn};
+            closeBtn.style.background = "transparent";
+            closeBtn.style.color = "var(--text-muted)";
+          };
           closeBtn.onclick = () => {
             linkNotice.hide();
           };
