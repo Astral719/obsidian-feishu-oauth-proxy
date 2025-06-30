@@ -267,13 +267,20 @@ var FeishuApiService = class {
   /**
    * 分享 Markdown 到飞书（完整流程：上传 → 转换 → 删除源文件）
    */
-  async shareMarkdown(title, content) {
+  async shareMarkdown(title, content, statusNotice) {
     try {
       console.log("=== Starting Complete Feishu Share Process ===");
       console.log("Title:", title);
       console.log("Content length:", content.length);
-      if (!this.settings.accessToken) {
-        throw new Error("\u8BF7\u5148\u5B8C\u6210\u98DE\u4E66\u6388\u6743");
+      if (statusNotice) {
+        statusNotice.setMessage("\u{1F50D} \u6B63\u5728\u68C0\u67E5\u6388\u6743\u72B6\u6001...");
+      }
+      const tokenValid = await this.ensureValidTokenWithReauth(statusNotice);
+      if (!tokenValid) {
+        throw new Error("\u6388\u6743\u5931\u6548\u4E14\u91CD\u65B0\u6388\u6743\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u91CD\u65B0\u6388\u6743");
+      }
+      if (statusNotice) {
+        statusNotice.setMessage("\u{1F4E4} \u6B63\u5728\u4E0A\u4F20\u6587\u4EF6\u5230\u98DE\u4E66...");
       }
       console.log("Step 1: Uploading markdown file...");
       const uploadResult = await this.uploadMarkdownFile(title, content);
@@ -285,6 +292,9 @@ var FeishuApiService = class {
         throw new Error("\u6587\u4EF6\u4E0A\u4F20\u6210\u529F\u4F46\u672A\u83B7\u53D6\u5230\u6587\u4EF6\u4EE4\u724C");
       }
       const fallbackFileUrl = `https://feishu.cn/file/${uploadResult.fileToken}`;
+      if (statusNotice) {
+        statusNotice.setMessage("\u{1F504} \u6B63\u5728\u8F6C\u6362\u4E3A\u98DE\u4E66\u6587\u6863...");
+      }
       console.log("Step 2: Attempting import task with 15s timeout...");
       console.log("File token for import:", uploadResult.fileToken);
       try {
@@ -354,6 +364,10 @@ var FeishuApiService = class {
    */
   async getFolderList(parentFolderId) {
     try {
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        throw new Error("Token\u65E0\u6548\uFF0C\u8BF7\u91CD\u65B0\u6388\u6743");
+      }
       const url = `${FEISHU_CONFIG.BASE_URL}/drive/v1/files`;
       const params = new URLSearchParams({
         folder_token: parentFolderId || "",
@@ -398,6 +412,10 @@ var FeishuApiService = class {
     try {
       console.log("Uploading markdown file:", fileName);
       console.log("Content length:", content.length);
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        throw new Error("Token\u65E0\u6548\uFF0C\u8BF7\u91CD\u65B0\u6388\u6743");
+      }
       const boundary = "---7MA4YWxkTrZu0gW";
       const finalFileName = fileName.endsWith(".md") ? fileName : `${fileName}.md`;
       const utf8Content = new TextEncoder().encode(content);
@@ -549,6 +567,148 @@ var FeishuApiService = class {
       console.error("Token validation error:", error);
       return false;
     }
+  }
+  /**
+   * 增强的token验证，支持自动重新授权
+   */
+  async ensureValidTokenWithReauth(statusNotice) {
+    console.log("\u{1F50D} \u68C0\u67E5token\u6709\u6548\u6027...");
+    if (!this.settings.accessToken) {
+      console.log("\u274C \u6CA1\u6709access token\uFF0C\u9700\u8981\u91CD\u65B0\u6388\u6743");
+      return await this.triggerReauth("\u6CA1\u6709\u8BBF\u95EE\u4EE4\u724C", statusNotice);
+    }
+    try {
+      const response = await (0, import_obsidian.requestUrl)({
+        url: FEISHU_CONFIG.USER_INFO_URL,
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${this.settings.accessToken}`
+        }
+      });
+      const data = response.json || JSON.parse(response.text);
+      if (data.code === 0) {
+        console.log("\u2705 Token\u6709\u6548");
+        return true;
+      } else if (this.isTokenExpiredError(data.code)) {
+        console.log("\u23F0 Token\u8FC7\u671F\uFF0C\u5C1D\u8BD5\u5237\u65B0...");
+        const refreshSuccess = await this.refreshAccessToken();
+        if (refreshSuccess) {
+          console.log("\u2705 Token\u5237\u65B0\u6210\u529F");
+          return true;
+        } else {
+          console.log("\u274C Token\u5237\u65B0\u5931\u8D25\uFF0C\u9700\u8981\u91CD\u65B0\u6388\u6743");
+          const reauthSuccess = await this.triggerReauth("Token\u5237\u65B0\u5931\u8D25", statusNotice);
+          if (reauthSuccess) {
+            console.log("\u2705 \u91CD\u65B0\u6388\u6743\u6210\u529F\uFF0Ctoken\u5DF2\u66F4\u65B0");
+            return true;
+          }
+          return false;
+        }
+      } else {
+        console.log("\u274C Token\u65E0\u6548\uFF0C\u9519\u8BEF\u7801:", data.code);
+        const reauthSuccess = await this.triggerReauth(`Token\u65E0\u6548 (\u9519\u8BEF\u7801: ${data.code})`, statusNotice);
+        if (reauthSuccess) {
+          console.log("\u2705 \u91CD\u65B0\u6388\u6743\u6210\u529F\uFF0Ctoken\u5DF2\u66F4\u65B0");
+          return true;
+        }
+        return false;
+      }
+    } catch (error) {
+      console.error("Token\u9A8C\u8BC1\u51FA\u9519:", error);
+      const reauthSuccess = await this.triggerReauth("Token\u9A8C\u8BC1\u51FA\u9519", statusNotice);
+      if (reauthSuccess) {
+        console.log("\u2705 \u91CD\u65B0\u6388\u6743\u6210\u529F\uFF0Ctoken\u5DF2\u66F4\u65B0");
+        return true;
+      }
+      return false;
+    }
+  }
+  /**
+   * 判断是否为token过期相关的错误码
+   */
+  isTokenExpiredError(code) {
+    const expiredCodes = [
+      99991664,
+      // access_token expired
+      99991663,
+      // access_token invalid
+      99991665,
+      // refresh_token expired
+      99991666,
+      // refresh_token invalid
+      1
+      // 通用的无效token错误
+    ];
+    return expiredCodes.includes(code);
+  }
+  /**
+   * 触发重新授权流程，支持等待授权完成
+   */
+  async triggerReauth(reason, statusNotice) {
+    console.log(`\u{1F504} \u89E6\u53D1\u91CD\u65B0\u6388\u6743: ${reason}`);
+    if (statusNotice) {
+      statusNotice.setMessage(`\u{1F504} ${reason}\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u65B0\u6388\u6743...`);
+    } else {
+      new import_obsidian.Notice(`\u{1F504} ${reason}\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u65B0\u6388\u6743...`);
+    }
+    try {
+      if (!this.settings.appId || !this.settings.appSecret) {
+        const errorMsg = "\u274C \u5E94\u7528\u914D\u7F6E\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6E App ID \u548C App Secret";
+        if (statusNotice) {
+          statusNotice.setMessage(errorMsg);
+          setTimeout(() => statusNotice.hide(), 3e3);
+        } else {
+          new import_obsidian.Notice(errorMsg);
+        }
+        return false;
+      }
+      const authUrl = this.generateAuthUrl();
+      console.log("\u{1F310} \u6253\u5F00\u6388\u6743\u9875\u9762:", authUrl);
+      window.open(authUrl, "_blank");
+      if (statusNotice) {
+        statusNotice.setMessage("\u{1F310} \u5DF2\u6253\u5F00\u6D4F\u89C8\u5668\u8FDB\u884C\u91CD\u65B0\u6388\u6743\uFF0C\u5B8C\u6210\u540E\u5C06\u81EA\u52A8\u7EE7\u7EED\u5206\u4EAB...");
+      } else {
+        new import_obsidian.Notice("\u{1F310} \u5DF2\u6253\u5F00\u6D4F\u89C8\u5668\u8FDB\u884C\u91CD\u65B0\u6388\u6743\uFF0C\u5B8C\u6210\u540E\u5C06\u81EA\u52A8\u7EE7\u7EED\u5206\u4EAB...");
+      }
+      return await this.waitForReauth(statusNotice);
+    } catch (error) {
+      console.error("\u91CD\u65B0\u6388\u6743\u5931\u8D25:", error);
+      new import_obsidian.Notice(`\u274C \u91CD\u65B0\u6388\u6743\u5931\u8D25: ${error.message}`);
+      return false;
+    }
+  }
+  /**
+   * 等待重新授权完成
+   */
+  async waitForReauth(statusNotice) {
+    return new Promise((resolve) => {
+      console.log("\u23F3 \u7B49\u5F85\u6388\u6743\u5B8C\u6210...");
+      const timeout = setTimeout(() => {
+        console.log("\u23F0 \u6388\u6743\u7B49\u5F85\u8D85\u65F6");
+        window.removeEventListener("feishu-auth-success", successHandler);
+        const timeoutMsg = "\u23F0 \u6388\u6743\u7B49\u5F85\u8D85\u65F6\uFF0C\u8BF7\u624B\u52A8\u91CD\u8BD5\u5206\u4EAB";
+        if (statusNotice) {
+          statusNotice.setMessage(timeoutMsg);
+          setTimeout(() => statusNotice.hide(), 3e3);
+        } else {
+          new import_obsidian.Notice(timeoutMsg);
+        }
+        resolve(false);
+      }, 5 * 60 * 1e3);
+      const successHandler = () => {
+        console.log("\u2705 \u6536\u5230\u6388\u6743\u6210\u529F\u4E8B\u4EF6\uFF0C\u51C6\u5907\u7EE7\u7EED\u5206\u4EAB");
+        clearTimeout(timeout);
+        window.removeEventListener("feishu-auth-success", successHandler);
+        if (statusNotice) {
+          statusNotice.setMessage("\u2705 \u6388\u6743\u6210\u529F\uFF0C\u6B63\u5728\u7EE7\u7EED\u5206\u4EAB...");
+        }
+        setTimeout(() => {
+          console.log("\u{1F504} \u6388\u6743\u5B8C\u6210\uFF0C\u7EE7\u7EED\u5206\u4EAB\u6D41\u7A0B");
+          resolve(true);
+        }, 1e3);
+      };
+      window.addEventListener("feishu-auth-success", successHandler);
+    });
   }
   /**
    * 创建导入任务（带正确的文件夹设置）
@@ -1171,31 +1331,121 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     containerEl.createEl("h3", { text: "\u{1F4D6} \u4F7F\u7528\u8BF4\u660E" });
     const usageEl = containerEl.createDiv("setting-item-description");
     usageEl.innerHTML = `
-			<ol>
-				<li><strong>\u914D\u7F6E\u5E94\u7528\uFF1A</strong>\u5728\u98DE\u4E66\u5F00\u653E\u5E73\u53F0\u521B\u5EFA\u5E94\u7528\uFF0C\u83B7\u53D6App ID\u548CApp Secret</li>
-				<li><strong>\u914D\u7F6E\u56DE\u8C03\uFF1A</strong>\u5728\u98DE\u4E66\u5E94\u7528\u4E2D\u6DFB\u52A0\u56DE\u8C03\u5730\u5740\uFF1A<code>https://md2feishu.xinqi.life/oauth-callback</code></li>
-				<li><strong>\u5B8C\u6210\u6388\u6743\uFF1A</strong>\u70B9\u51FB"\u{1F680} \u4E00\u952E\u6388\u6743"\u6309\u94AE\uFF0C\u6D4F\u89C8\u5668\u5C06\u81EA\u52A8\u5B8C\u6210\u6388\u6743\u6D41\u7A0B</li>
-				<li><strong>\u9009\u62E9\u6587\u4EF6\u5939\uFF1A</strong>\u6388\u6743\u540E\u53EF\u9009\u62E9\u9ED8\u8BA4\u4FDD\u5B58\u6587\u4EF6\u5939\uFF08\u53EF\u9009\uFF09</li>
-				<li><strong>\u5F00\u59CB\u4F7F\u7528\uFF1A</strong>\u5728\u6587\u4EF6\u7BA1\u7406\u5668\u4E2D\u53F3\u952EMD\u6587\u4EF6\u9009\u62E9"\u5206\u4EAB\u5230\u98DE\u4E66"\uFF0C\u6216\u4F7F\u7528\u547D\u4EE4\u9762\u677F</li>
-			</ol>
+			<div style="
+				background: var(--background-secondary);
+				border: 1px solid var(--background-modifier-border);
+				padding: 16px;
+				border-radius: 8px;
+				margin-bottom: 16px;
+				border-left: 4px solid var(--color-accent);
+			">
+				<strong style="color: var(--text-accent); font-size: 14px;">\u{1F4CB} \u5FEB\u901F\u914D\u7F6E\u6307\u5357</strong>
+				<ol style="margin: 12px 0 0 0; padding-left: 20px; color: var(--text-normal);">
+					<li style="margin-bottom: 8px;">
+						<strong>\u521B\u5EFA\u98DE\u4E66\u5E94\u7528\uFF1A</strong>\u8BBF\u95EE
+						<a href="https://open.feishu.cn/app" target="_blank" style="color: var(--text-accent); text-decoration: none;">
+							\u98DE\u4E66\u5F00\u653E\u5E73\u53F0 \u{1F517}
+						</a>
+						\u521B\u5EFA"\u4F01\u4E1A\u81EA\u5EFA\u5E94\u7528"\uFF0C\u83B7\u53D6App ID\u548CApp Secret
+					</li>
+					<li style="margin-bottom: 8px;">
+						<strong>\u914D\u7F6EOAuth\u56DE\u8C03\uFF1A</strong>\u5728\u98DE\u4E66\u5E94\u7528"\u5B89\u5168\u8BBE\u7F6E"\u4E2D\u6DFB\u52A0\u56DE\u8C03\u5730\u5740\uFF1A
+						<br><code style="background: var(--background-primary); padding: 2px 6px; border-radius: 3px; font-size: 12px;">https://md2feishu.xinqi.life/oauth-callback</code>
+						<br><span style="font-size: 12px; color: var(--text-muted);">\u{1F4A1} \u9ED8\u8BA4\u4F7F\u7528\u6211\u4EEC\u7684\u56DE\u8C03\u670D\u52A1\uFF0C\u4EE3\u7801\u5F00\u6E90\u53EF\u81EA\u884C\u90E8\u7F72</span>
+					</li>
+					<li style="margin-bottom: 8px;">
+						<strong>\u6DFB\u52A0\u5E94\u7528\u6743\u9650\uFF1A</strong>\u5728"\u6743\u9650\u7BA1\u7406"\u4E2D\u6DFB\u52A0\u4EE5\u4E0B\u6743\u9650\uFF1A
+						<ul style="margin: 4px 0 0 20px; font-size: 12px; color: var(--text-muted);">
+							<li>contact:user.base:readonly - \u83B7\u53D6\u7528\u6237\u57FA\u672C\u4FE1\u606F</li>
+							<li>docx:document - \u521B\u5EFA\u3001\u7F16\u8F91\u6587\u6863</li>
+							<li>drive:drive - \u8BBF\u95EE\u4E91\u7A7A\u95F4\u6587\u4EF6</li>
+						</ul>
+					</li>
+					<li style="margin-bottom: 8px;">
+						<strong>\u5B8C\u6210\u6388\u6743\uFF1A</strong>\u5728\u4E0A\u65B9\u8F93\u5165App ID\u548CApp Secret\uFF0C\u70B9\u51FB"\u{1F680} \u4E00\u952E\u6388\u6743"
+					</li>
+					<li style="margin-bottom: 8px;">
+						<strong>\u9009\u62E9\u6587\u4EF6\u5939\uFF1A</strong>\u6388\u6743\u540E\u53EF\u9009\u62E9\u9ED8\u8BA4\u4FDD\u5B58\u6587\u4EF6\u5939\uFF08\u53EF\u9009\uFF09
+					</li>
+					<li style="margin-bottom: 0;">
+						<strong>\u5F00\u59CB\u4F7F\u7528\uFF1A</strong>\u53F3\u952EMD\u6587\u4EF6\u9009\u62E9"\u{1F4E4} \u5206\u4EAB\u5230\u98DE\u4E66"\uFF0C\u6216\u4F7F\u7528\u547D\u4EE4\u9762\u677F
+					</li>
+				</ol>
+			</div>
 			<div style="
 				background: var(--background-secondary);
 				border: 1px solid var(--background-modifier-border);
 				padding: 12px;
 				border-radius: 6px;
-				margin-top: 12px;
 				border-left: 4px solid var(--color-accent);
 			">
 				<strong style="color: var(--text-accent);">\u{1F389} \u529F\u80FD\u7279\u8272\uFF1A</strong>
 				<ul style="margin: 8px 0 0 20px; color: var(--text-normal);">
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u81EA\u52A8\u6388\u6743\uFF1A</strong>\u65E0\u9700\u624B\u52A8\u590D\u5236\u7C98\u8D34\u6388\u6743\u7801</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>MD\u8F6C\u6587\u6863\uFF1A</strong>\u81EA\u52A8\u8F6C\u6362\u4E3A\u53EF\u7F16\u8F91\u7684\u98DE\u4E66\u6587\u6863</li>
+					<li style="margin-bottom: 4px;">\u2705 <strong>\u667A\u80FD\u6388\u6743\uFF1A</strong>\u81EA\u52A8\u68C0\u6D4Btoken\u72B6\u6001\uFF0C\u5931\u6548\u65F6\u81EA\u52A8\u91CD\u65B0\u6388\u6743</li>
+					<li style="margin-bottom: 4px;">\u2705 <strong>\u65E0\u7F1D\u5206\u4EAB\uFF1A</strong>\u4E00\u952E\u5206\u4EAB\uFF0C\u81EA\u52A8\u5904\u7406\u6388\u6743\u548C\u8F6C\u6362\u6D41\u7A0B</li>
+					<li style="margin-bottom: 4px;">\u2705 <strong>\u683C\u5F0F\u4FDD\u6301\uFF1A</strong>\u5B8C\u7F8E\u4FDD\u6301Markdown\u683C\u5F0F\uFF0C\u5305\u62EC\u56FE\u7247\u3001\u8868\u683C\u3001\u4EE3\u7801\u5757</li>
 					<li style="margin-bottom: 4px;">\u2705 <strong>\u667A\u80FD\u5904\u7406\uFF1A</strong>\u81EA\u52A8\u5904\u7406Obsidian\u53CC\u5411\u94FE\u63A5\u3001\u6807\u7B7E\u7B49\u8BED\u6CD5</li>
 					<li style="margin-bottom: 4px;">\u2705 <strong>\u53EF\u89C6\u5316\u9009\u62E9\uFF1A</strong>\u652F\u6301\u6D4F\u89C8\u548C\u9009\u62E9\u76EE\u6807\u6587\u4EF6\u5939</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u4E00\u952E\u590D\u5236\uFF1A</strong>\u5206\u4EAB\u6210\u529F\u540E\u53EF\u4E00\u952E\u590D\u5236\u6587\u6863\u94FE\u63A5</li>
+					<li style="margin-bottom: 0;">\u2705 <strong>\u4E00\u952E\u590D\u5236\uFF1A</strong>\u5206\u4EAB\u6210\u529F\u540E\u53EF\u4E00\u952E\u590D\u5236\u6587\u6863\u94FE\u63A5</li>
 				</ul>
 			</div>
 		`;
+    this.addAuthorSection(containerEl);
+  }
+  addAuthorSection(containerEl) {
+    containerEl.createEl("hr", {
+      attr: {
+        style: "margin: 24px 0; border: none; border-top: 1px solid var(--background-modifier-border);"
+      }
+    });
+    const authorSection = containerEl.createDiv({
+      attr: {
+        style: `
+				text-align: center;
+				padding: 16px;
+				background: var(--background-secondary);
+				border-radius: 8px;
+				border: 1px solid var(--background-modifier-border);
+			`
+      }
+    });
+    authorSection.createEl("h4", {
+      text: "\u{1F468}\u200D\u{1F4BB} \u4E86\u89E3\u4F5C\u8005",
+      attr: {
+        style: "margin: 0 0 12px 0; color: var(--text-normal);"
+      }
+    });
+    authorSection.createEl("p", {
+      text: "\u60F3\u4E86\u89E3\u66F4\u591A\u5173\u4E8E\u4F5C\u8005\u548C\u5176\u4ED6\u9879\u76EE\u7684\u4FE1\u606F\uFF1F",
+      attr: {
+        style: "margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;"
+      }
+    });
+    const authorButton = authorSection.createEl("button", {
+      text: "\u{1F310} \u8BBF\u95EE\u4F5C\u8005\u4E3B\u9875",
+      attr: {
+        style: `
+				background: var(--color-accent);
+				color: var(--text-on-accent);
+				border: none;
+				padding: 8px 16px;
+				border-radius: 6px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: 500;
+				transition: opacity 0.2s;
+			`
+      }
+    });
+    authorButton.addEventListener("click", () => {
+      window.open("https://ai.xinqi.life/about", "_blank");
+    });
+    authorButton.addEventListener("mouseenter", () => {
+      authorButton.style.opacity = "0.8";
+    });
+    authorButton.addEventListener("mouseleave", () => {
+      authorButton.style.opacity = "1";
+    });
   }
   startAutoAuth() {
     console.log("Starting auto auth...");
@@ -1486,7 +1736,12 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
         if (success) {
           new import_obsidian5.Notice("\u{1F389} \u81EA\u52A8\u6388\u6743\u6210\u529F\uFF01");
           await this.saveSettings();
-          window.dispatchEvent(new CustomEvent("feishu-auth-success"));
+          window.dispatchEvent(new CustomEvent("feishu-auth-success", {
+            detail: {
+              timestamp: Date.now(),
+              source: "oauth-callback"
+            }
+          }));
         } else {
           new import_obsidian5.Notice("\u274C \u6388\u6743\u5904\u7406\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5");
         }
@@ -1519,12 +1774,13 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
    * 分享指定文件
    */
   async shareFile(file) {
+    const statusNotice = new import_obsidian5.Notice("\u{1F504} \u6B63\u5728\u5206\u4EAB\u5230\u98DE\u4E66...", 0);
     try {
       if (!this.settings.accessToken || !this.settings.userInfo) {
+        statusNotice.hide();
         new import_obsidian5.Notice("\u274C \u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u5B8C\u6210\u98DE\u4E66\u6388\u6743");
         return;
       }
-      new import_obsidian5.Notice("\u{1F504} \u6B63\u5728\u5206\u4EAB\u5230\u98DE\u4E66...");
       const rawContent = await this.app.vault.read(file);
       const title = file.basename;
       console.log("=== Starting Feishu Share ===");
@@ -1534,7 +1790,8 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
       console.log("Processing markdown content...");
       const processedContent = this.markdownProcessor.processComplete(rawContent);
       console.log("Processed content length:", processedContent.length);
-      const result = await this.feishuApi.shareMarkdown(title, processedContent);
+      const result = await this.feishuApi.shareMarkdown(title, processedContent, statusNotice);
+      statusNotice.hide();
       if (result.success) {
         console.log("Share successful:", result);
         if (result.url) {
@@ -1733,6 +1990,7 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
         console.error("Share failed:", result.error);
       }
     } catch (error) {
+      statusNotice.hide();
       console.error("Share file error:", error);
       new import_obsidian5.Notice(`\u274C \u5206\u4EAB\u5931\u8D25\uFF1A${error.message}`);
     }

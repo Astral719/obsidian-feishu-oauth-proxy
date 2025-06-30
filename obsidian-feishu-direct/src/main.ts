@@ -119,8 +119,13 @@ export default class FeishuSharePlugin extends Plugin {
 					new Notice('🎉 自动授权成功！');
 					await this.saveSettings();
 
-					// 通知设置页面刷新 - 使用自定义事件
-					window.dispatchEvent(new CustomEvent('feishu-auth-success'));
+					// 通知设置页面刷新和分享流程继续 - 使用自定义事件
+					window.dispatchEvent(new CustomEvent('feishu-auth-success', {
+						detail: {
+							timestamp: Date.now(),
+							source: 'oauth-callback'
+						}
+					}));
 				} else {
 					new Notice('❌ 授权处理失败，请重试');
 				}
@@ -157,14 +162,16 @@ export default class FeishuSharePlugin extends Plugin {
 	 * 分享指定文件
 	 */
 	async shareFile(file: TFile) {
+		// 创建持续状态提示
+		const statusNotice = new Notice('🔄 正在分享到飞书...', 0); // 0表示不自动消失
+
 		try {
-			// 检查授权状态
+			// 检查基本授权状态
 			if (!this.settings.accessToken || !this.settings.userInfo) {
+				statusNotice.hide();
 				new Notice('❌ 请先在设置中完成飞书授权');
 				return;
 			}
-
-			new Notice('🔄 正在分享到飞书...');
 
 			// 读取文件内容
 			const rawContent = await this.app.vault.read(file);
@@ -182,8 +189,11 @@ export default class FeishuSharePlugin extends Plugin {
 			const processedContent = this.markdownProcessor.processComplete(rawContent);
 			console.log('Processed content length:', processedContent.length);
 
-			// 调用API分享
-			const result = await this.feishuApi.shareMarkdown(title, processedContent);
+			// 调用API分享（内部会自动检查和刷新token，如果需要重新授权会等待完成）
+			const result = await this.feishuApi.shareMarkdown(title, processedContent, statusNotice);
+
+			// 隐藏状态提示
+			statusNotice.hide();
 
 			if (result.success) {
 				console.log('Share successful:', result);
@@ -416,6 +426,8 @@ export default class FeishuSharePlugin extends Plugin {
 			}
 
 		} catch (error) {
+			// 确保隐藏状态提示
+			statusNotice.hide();
 			console.error('Share file error:', error);
 			new Notice(`❌ 分享失败：${error.message}`);
 		}

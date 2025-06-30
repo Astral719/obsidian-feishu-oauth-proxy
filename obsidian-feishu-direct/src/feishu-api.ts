@@ -266,15 +266,26 @@ export class FeishuApiService {
 	/**
 	 * 分享 Markdown 到飞书（完整流程：上传 → 转换 → 删除源文件）
 	 */
-	async shareMarkdown(title: string, content: string): Promise<ShareResult> {
+	async shareMarkdown(title: string, content: string, statusNotice?: Notice): Promise<ShareResult> {
 		try {
 			console.log('=== Starting Complete Feishu Share Process ===');
 			console.log('Title:', title);
 			console.log('Content length:', content.length);
 
-			// 检查token
-			if (!this.settings.accessToken) {
-				throw new Error('请先完成飞书授权');
+			// 更新状态：检查授权
+			if (statusNotice) {
+				statusNotice.setMessage('🔍 正在检查授权状态...');
+			}
+
+			// 检查并确保token有效
+			const tokenValid = await this.ensureValidTokenWithReauth(statusNotice);
+			if (!tokenValid) {
+				throw new Error('授权失效且重新授权失败，请手动重新授权');
+			}
+
+			// 更新状态：开始上传
+			if (statusNotice) {
+				statusNotice.setMessage('📤 正在上传文件到飞书...');
 			}
 
 			// 第一步：上传 Markdown 文件
@@ -292,6 +303,11 @@ export class FeishuApiService {
 			}
 
 			const fallbackFileUrl = `https://feishu.cn/file/${uploadResult.fileToken}`;
+
+			// 更新状态：转换文档
+			if (statusNotice) {
+				statusNotice.setMessage('🔄 正在转换为飞书文档...');
+			}
 
 			// 第二步：尝试导入任务（15秒超时策略）
 			console.log('Step 2: Attempting import task with 15s timeout...');
@@ -375,6 +391,12 @@ export class FeishuApiService {
 	 */
 	async getFolderList(parentFolderId?: string): Promise<any> {
 		try {
+			// 确保token有效
+			const tokenValid = await this.ensureValidToken();
+			if (!tokenValid) {
+				throw new Error('Token无效，请重新授权');
+			}
+
 			const url = `${FEISHU_CONFIG.BASE_URL}/drive/v1/files`;
 			const params = new URLSearchParams({
 				folder_token: parentFolderId || '',
@@ -425,6 +447,12 @@ export class FeishuApiService {
 		try {
 			console.log('Uploading markdown file:', fileName);
 			console.log('Content length:', content.length);
+
+			// 确保token有效
+			const tokenValid = await this.ensureValidToken();
+			if (!tokenValid) {
+				throw new Error('Token无效，请重新授权');
+			}
 
 			// 使用固定的boundary（与成功版本一致）
 			const boundary = '---7MA4YWxkTrZu0gW';
@@ -619,6 +647,179 @@ export class FeishuApiService {
 			console.error('Token validation error:', error);
 			return false;
 		}
+	}
+
+	/**
+	 * 增强的token验证，支持自动重新授权
+	 */
+	async ensureValidTokenWithReauth(statusNotice?: Notice): Promise<boolean> {
+		console.log('🔍 检查token有效性...');
+
+		if (!this.settings.accessToken) {
+			console.log('❌ 没有access token，需要重新授权');
+			return await this.triggerReauth('没有访问令牌', statusNotice);
+		}
+
+		// 测试当前token是否有效
+		try {
+			const response = await requestUrl({
+				url: FEISHU_CONFIG.USER_INFO_URL,
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${this.settings.accessToken}`,
+				}
+			});
+
+			const data = response.json || JSON.parse(response.text);
+
+			if (data.code === 0) {
+				console.log('✅ Token有效');
+				return true;
+			} else if (this.isTokenExpiredError(data.code)) {
+				// Token过期，尝试刷新
+				console.log('⏰ Token过期，尝试刷新...');
+				const refreshSuccess = await this.refreshAccessToken();
+
+				if (refreshSuccess) {
+					console.log('✅ Token刷新成功');
+					return true;
+				} else {
+					console.log('❌ Token刷新失败，需要重新授权');
+					const reauthSuccess = await this.triggerReauth('Token刷新失败', statusNotice);
+					if (reauthSuccess) {
+						console.log('✅ 重新授权成功，token已更新');
+						return true;
+					}
+					return false;
+				}
+			} else {
+				console.log('❌ Token无效，错误码:', data.code);
+				const reauthSuccess = await this.triggerReauth(`Token无效 (错误码: ${data.code})`, statusNotice);
+				if (reauthSuccess) {
+					console.log('✅ 重新授权成功，token已更新');
+					return true;
+				}
+				return false;
+			}
+
+		} catch (error) {
+			console.error('Token验证出错:', error);
+			const reauthSuccess = await this.triggerReauth('Token验证出错', statusNotice);
+			if (reauthSuccess) {
+				console.log('✅ 重新授权成功，token已更新');
+				return true;
+			}
+			return false;
+		}
+	}
+
+	/**
+	 * 判断是否为token过期相关的错误码
+	 */
+	private isTokenExpiredError(code: number): boolean {
+		// 常见的token过期错误码
+		const expiredCodes = [
+			99991664, // access_token expired
+			99991663, // access_token invalid
+			99991665, // refresh_token expired
+			99991666, // refresh_token invalid
+			1, // 通用的无效token错误
+		];
+		return expiredCodes.includes(code);
+	}
+
+	/**
+	 * 触发重新授权流程，支持等待授权完成
+	 */
+	private async triggerReauth(reason: string, statusNotice?: Notice): Promise<boolean> {
+		console.log(`🔄 触发重新授权: ${reason}`);
+
+		// 更新状态提示
+		if (statusNotice) {
+			statusNotice.setMessage(`🔄 ${reason}，正在自动重新授权...`);
+		} else {
+			new Notice(`🔄 ${reason}，正在自动重新授权...`);
+		}
+
+		try {
+			// 检查应用配置
+			if (!this.settings.appId || !this.settings.appSecret) {
+				const errorMsg = '❌ 应用配置不完整，请在设置中配置 App ID 和 App Secret';
+				if (statusNotice) {
+					statusNotice.setMessage(errorMsg);
+					setTimeout(() => statusNotice.hide(), 3000);
+				} else {
+					new Notice(errorMsg);
+				}
+				return false;
+			}
+
+			// 生成授权URL
+			const authUrl = this.generateAuthUrl();
+			console.log('🌐 打开授权页面:', authUrl);
+
+			// 打开浏览器进行授权
+			window.open(authUrl, '_blank');
+
+			// 更新状态：等待授权
+			if (statusNotice) {
+				statusNotice.setMessage('🌐 已打开浏览器进行重新授权，完成后将自动继续分享...');
+			} else {
+				new Notice('🌐 已打开浏览器进行重新授权，完成后将自动继续分享...');
+			}
+
+			// 等待授权完成
+			return await this.waitForReauth(statusNotice);
+
+		} catch (error) {
+			console.error('重新授权失败:', error);
+			new Notice(`❌ 重新授权失败: ${error.message}`);
+			return false;
+		}
+	}
+
+	/**
+	 * 等待重新授权完成
+	 */
+	private async waitForReauth(statusNotice?: Notice): Promise<boolean> {
+		return new Promise((resolve) => {
+			console.log('⏳ 等待授权完成...');
+
+			// 设置超时时间（5分钟）
+			const timeout = setTimeout(() => {
+				console.log('⏰ 授权等待超时');
+				window.removeEventListener('feishu-auth-success', successHandler);
+
+				const timeoutMsg = '⏰ 授权等待超时，请手动重试分享';
+				if (statusNotice) {
+					statusNotice.setMessage(timeoutMsg);
+					setTimeout(() => statusNotice.hide(), 3000);
+				} else {
+					new Notice(timeoutMsg);
+				}
+				resolve(false);
+			}, 5 * 60 * 1000); // 5分钟超时
+
+			// 监听授权成功事件
+			const successHandler = () => {
+				console.log('✅ 收到授权成功事件，准备继续分享');
+				clearTimeout(timeout);
+				window.removeEventListener('feishu-auth-success', successHandler);
+
+				// 更新状态：授权成功，继续分享
+				if (statusNotice) {
+					statusNotice.setMessage('✅ 授权成功，正在继续分享...');
+				}
+
+				// 短暂延迟确保设置已保存
+				setTimeout(() => {
+					console.log('🔄 授权完成，继续分享流程');
+					resolve(true);
+				}, 1000);
+			};
+
+			window.addEventListener('feishu-auth-success', successHandler);
+		});
 	}
 
 	/**

@@ -29,25 +29,33 @@
 ## ⚙️ 配置指南
 
 ### 第一步：创建飞书应用
-1. 访问 [飞书开放平台](https://open.feishu.cn/)
-2. 创建"企业自建应用"
-3. 记录 **App ID** 和 **App Secret**
-4. 在"权限管理"中添加以下权限：
+1. 访问 [飞书开放平台](https://open.feishu.cn/app) 并登录
+2. 点击"创建应用" → 选择"企业自建应用"
+3. 填写应用名称和描述，创建应用
+4. 在应用详情页记录 **App ID** 和 **App Secret**
+5. 在"权限管理"中添加以下权限：
    - `contact:user.base:readonly` - 获取用户基本信息
    - `docx:document` - 创建、编辑文档
    - `drive:drive` - 访问云空间文件
 
-### 第二步：配置回调地址
+### 第二步：配置OAuth回调地址
 在应用的"安全设置" → "重定向URL"中添加：
 ```
 https://md2feishu.xinqi.life/oauth-callback
 ```
 
+> **💡 提示：**
+> - 默认使用我们提供的回调服务：`https://md2feishu.xinqi.life/oauth-callback`
+> - 回调页面代码完全开源，如有需要可自行部署：[GitHub仓库](https://github.com/Astral719/obsidian-feishu-share)
+> - 自行部署时请将回调地址修改为你的域名
+
 ### 第三步：插件授权
-1. 在 Obsidian 插件设置中输入 App ID 和 App Secret
-2. 点击"🚀 一键授权"按钮
+1. 在 Obsidian 插件设置中输入 **App ID** 和 **App Secret**
+2. 点击"🚀 一键授权"按钮（推荐）
 3. 在弹出的浏览器中完成飞书登录授权
-4. 授权成功后即可开始使用
+4. 授权成功后自动返回 Obsidian，即可开始使用
+
+> **🔧 备用方案：** 如果一键授权遇到问题，可使用"手动授权"方式
 
 ## 🚀 使用方法
 
@@ -159,3 +167,9 @@ npm run build   # 生产构建
 ## 📄 许可证
 
 MIT License
+
+## 👨‍💻 了解作者
+
+想了解更多关于作者的信息？点击下方按钮：
+
+[![了解作者](https://img.shields.io/badge/了解作者-点击访问-blue?style=for-the-badge&logo=user)](https://ai.xinqi.life/about)
