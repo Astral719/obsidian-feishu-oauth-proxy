@@ -22,9 +22,10 @@
 6. 点击安装并启用
 
 ### 手动安装
-1. 从 [Releases](https://github.com/Astral719/obsidian-feishu-oauth-proxy/releases) 下载最新版本
-2. 解压到 Obsidian 插件目录：`{vault}/.obsidian/plugins/obsidian-feishu-direct/`
-3. 重启 Obsidian 并在设置中启用插件
+1. 从 [Releases](https://github.com/Astral719/obsidian-feishu-share/releases) 下载最新版本的 `main.js`、`manifest.json`、`styles.css`
+2. 在你的 vault 中创建文件夹：`{vault}/.obsidian/plugins/feishu-share/`
+3. 将下载的文件放入该文件夹
+4. 重启 Obsidian 并在设置中启用插件
 
 ## ⚙️ 配置指南
 
