@@ -35,11 +35,9 @@ export class FeishuSettingTab extends PluginSettingTab {
 				.setPlaceholder('输入飞书应用的 App ID')
 				.setValue(this.plugin.settings.appId)
 				.onChange(async (value) => {
-					console.log('Setting App ID:', value);
 					this.plugin.settings.appId = value.trim();
 					await this.plugin.saveSettings();
-					console.log('App ID saved:', this.plugin.settings.appId);
-				}));
+					}));
 
 		// App Secret
 		new Setting(containerEl)
@@ -49,11 +47,9 @@ export class FeishuSettingTab extends PluginSettingTab {
 				text.setPlaceholder('输入飞书应用的 App Secret')
 					.setValue(this.plugin.settings.appSecret)
 					.onChange(async (value) => {
-						console.log('Setting App Secret:', value ? '***' : 'empty');
 						this.plugin.settings.appSecret = value.trim();
 						await this.plugin.saveSettings();
-						console.log('App Secret saved:', this.plugin.settings.appSecret ? '***' : 'empty');
-					});
+						});
 				text.inputEl.type = 'password';
 			});
 
@@ -65,11 +61,9 @@ export class FeishuSettingTab extends PluginSettingTab {
 				.setPlaceholder('https://md2feishu.xinqi.life/oauth-callback')
 				.setValue(this.plugin.settings.callbackUrl)
 				.onChange(async (value) => {
-					console.log('Setting callback URL:', value);
 					this.plugin.settings.callbackUrl = value.trim();
 					await this.plugin.saveSettings();
-					console.log('Callback URL saved:', this.plugin.settings.callbackUrl);
-				}));
+					}));
 
 		// 授权部分
 		containerEl.createEl('h3', { text: '🔐 授权管理' });
@@ -292,13 +286,6 @@ private addAuthorSection(containerEl: HTMLElement) {
 }
 
 	private startAutoAuth() {
-		console.log('Starting auto auth...');
-		console.log('Current settings:', {
-			appId: this.plugin.settings.appId,
-			appSecret: this.plugin.settings.appSecret ? '***' : 'empty',
-			hasUserInfo: !!this.plugin.settings.userInfo
-		});
-
 		if (!this.plugin.settings.appId || !this.plugin.settings.appSecret) {
 			new Notice('❌ 请先配置 App ID 和 App Secret');
 			console.error('Missing App ID or App Secret');
@@ -307,13 +294,9 @@ private addAuthorSection(containerEl: HTMLElement) {
 
 		// 确保API服务有最新的设置
 		this.plugin.feishuApi.updateSettings(this.plugin.settings);
-		console.log('Updated API service settings');
-
 		try {
 			// 生成授权URL并打开浏览器
 			const authUrl = this.plugin.feishuApi.generateAuthUrl();
-			console.log('Opening auth URL:', authUrl);
-
 			// 打开浏览器进行授权
 			window.open(authUrl, '_blank');
 
@@ -321,7 +304,6 @@ private addAuthorSection(containerEl: HTMLElement) {
 
 			// 监听授权成功事件
 			const successHandler = () => {
-				console.log('Auto auth success event received');
 				this.display(); // 刷新设置界面
 				window.removeEventListener('feishu-auth-success', successHandler);
 			};
@@ -335,13 +317,6 @@ private addAuthorSection(containerEl: HTMLElement) {
 	}
 
 	private startManualAuth() {
-		console.log('Starting manual auth...');
-		console.log('Current settings:', {
-			appId: this.plugin.settings.appId,
-			appSecret: this.plugin.settings.appSecret ? '***' : 'empty',
-			hasUserInfo: !!this.plugin.settings.userInfo
-		});
-
 		if (!this.plugin.settings.appId || !this.plugin.settings.appSecret) {
 			new Notice('❌ 请先配置 App ID 和 App Secret');
 			console.error('Missing App ID or App Secret');
@@ -350,14 +325,11 @@ private addAuthorSection(containerEl: HTMLElement) {
 
 		// 确保API服务有最新的设置
 		this.plugin.feishuApi.updateSettings(this.plugin.settings);
-		console.log('Updated API service settings');
-
 		const modal = new ManualAuthModal(
 			this.app,
 			this.plugin.feishuApi,
 			async () => {
 				// 授权成功回调
-				console.log('Auth success callback triggered');
 				await this.plugin.saveSettings();
 				this.display(); // 刷新设置界面
 			}
@@ -375,10 +347,6 @@ private addAuthorSection(containerEl: HTMLElement) {
 			async (selectedFolder) => {
 				if (selectedFolder) {
 					// 用户选择了一个文件夹
-					console.log('📁 Folder selected:', selectedFolder);
-					console.log('📁 Folder token:', selectedFolder.folder_token || selectedFolder.token);
-					console.log('📁 Folder name:', selectedFolder.name);
-
 					// 兼容两种属性名：folder_token 和 token
 					this.plugin.settings.defaultFolderId = selectedFolder.folder_token || selectedFolder.token || '';
 					this.plugin.settings.defaultFolderName = selectedFolder.name;
@@ -390,11 +358,6 @@ private addAuthorSection(containerEl: HTMLElement) {
 				}
 
 				await this.plugin.saveSettings();
-				console.log('📁 Settings saved:', {
-					defaultFolderId: this.plugin.settings.defaultFolderId,
-					defaultFolderName: this.plugin.settings.defaultFolderName
-				});
-
 				new Notice('✅ 默认文件夹设置已保存');
 				this.display(); // 刷新设置界面
 			}

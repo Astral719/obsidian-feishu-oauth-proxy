@@ -1,0 +1,54 @@
+// Vercel Serverless Function for OAuth Start
+export default async function handler(req, res) {
+    // 设置CORS头
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const { app_id, state } = req.body;
+
+        if (!app_id || !state) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing app_id or state' 
+            });
+        }
+
+        // 动态获取当前域名
+        const host = req.headers.host;
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const baseUrl = `${protocol}://${host}`;
+
+        // 构建授权URL
+        const redirectUri = `${baseUrl}/api/oauth/callback`;
+        const scopes = 'contact:user.base:readonly docx:document drive:drive';
+        const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&scope=${encodeURIComponent(scopes)}`;
+
+        console.log(`Starting OAuth flow for state: ${state}`);
+        console.log(`Base URL: ${baseUrl}`);
+        console.log(`Redirect URI: ${redirectUri}`);
+        console.log(`Auth URL: ${authUrl}`);
+
+        return res.status(200).json({
+            success: true,
+            auth_url: authUrl,
+            callback_url: `${baseUrl}/api/oauth/status/${state}`
+        });
+
+    } catch (error) {
+        console.error('OAuth start error:', error);
+        return res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+}

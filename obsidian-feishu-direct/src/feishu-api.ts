@@ -32,10 +32,6 @@ export class FeishuApiService {
 	 * 生成授权 URL
 	 */
 	generateAuthUrl(): string {
-		console.log('Generating auth URL...');
-		console.log('App ID:', this.settings.appId);
-		console.log('App Secret:', this.settings.appSecret ? '***' : 'empty');
-
 		if (!this.settings.appId || !this.settings.appSecret) {
 			throw new Error('请先在设置中配置飞书应用的 App ID 和 App Secret');
 		}
@@ -55,8 +51,6 @@ export class FeishuApiService {
 		});
 
 		const authUrl = `${FEISHU_CONFIG.AUTHORIZE_URL}?${params.toString()}`;
-		console.log('Generated auth URL:', authUrl);
-
 		return authUrl;
 	}
 
@@ -67,8 +61,6 @@ export class FeishuApiService {
 	 */
 	async processCallback(callbackUrl: string): Promise<boolean> {
 		try {
-			console.log('Processing callback URL:', callbackUrl);
-
 			// 解析URL参数
 			const url = new URL(callbackUrl);
 			const code = url.searchParams.get('code');
@@ -106,8 +98,6 @@ export class FeishuApiService {
 	 */
 	async handleOAuthCallback(authCode: string): Promise<boolean> {
 		try {
-			console.log('Processing OAuth callback with code:', authCode);
-
 			if (!this.settings.appId || !this.settings.appSecret) {
 				throw new Error('应用配置不完整');
 			}
@@ -142,14 +132,7 @@ export class FeishuApiService {
 	 */
 	private async exchangeCodeForToken(code: string): Promise<{success: boolean, error?: string}> {
 		try {
-			console.log('Exchanging code for token...');
-			console.log('Using App ID:', this.settings.appId);
-			console.log('Using App Secret:', this.settings.appSecret ? '***' : 'empty');
-			console.log('Using code:', code);
-
 			// 方案1：尝试使用应用凭证获取app_access_token，然后用于OAuth
-			console.log('First getting app access token...');
-
 			const appTokenResponse = await requestUrl({
 				url: 'https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal',
 				method: 'POST',
@@ -162,25 +145,18 @@ export class FeishuApiService {
 				})
 			});
 
-			console.log('App token response:', appTokenResponse.status);
 			const appTokenData = appTokenResponse.json || JSON.parse(appTokenResponse.text);
-			console.log('App token data:', appTokenData);
-
 			if (appTokenData.code !== 0) {
 				console.error('Failed to get app access token:', appTokenData);
 				return { success: false, error: `获取应用令牌失败: ${appTokenData.msg}` };
 			}
 
 			const appAccessToken = appTokenData.app_access_token;
-			console.log('Got app access token, now exchanging user code...');
-
 			// 方案2：使用app_access_token进行用户授权码交换
 			const requestBody = {
 				grant_type: 'authorization_code',
 				code: code
 			};
-
-			console.log('Request body:', requestBody);
 
 			const response = await requestUrl({
 				url: FEISHU_CONFIG.TOKEN_URL,
@@ -192,20 +168,15 @@ export class FeishuApiService {
 				body: JSON.stringify(requestBody)
 			});
 
-			console.log('Token exchange response status:', response.status);
-			console.log('Token exchange response headers:', response.headers);
-
 			// 尝试不同的方式获取响应数据
 			let data: FeishuOAuthResponse;
 
 			if (response.json && typeof response.json === 'object') {
 				// 如果json是对象，直接使用
 				data = response.json;
-				console.log('Using response.json directly:', data);
-			} else if (response.text) {
+				} else if (response.text) {
 				// 如果有text属性，解析JSON
 				const responseText = response.text;
-				console.log('Token exchange response text:', responseText);
 				data = JSON.parse(responseText);
 			} else {
 				// 尝试调用json()方法
@@ -216,7 +187,6 @@ export class FeishuApiService {
 			if (data.code === 0) {
 				this.settings.accessToken = data.data.access_token;
 				this.settings.refreshToken = data.data.refresh_token;
-				console.log('Token exchange successful');
 				return { success: true };
 			} else {
 				console.error('Token exchange failed:', data);
@@ -268,10 +238,6 @@ export class FeishuApiService {
 	 */
 	async shareMarkdown(title: string, content: string, statusNotice?: Notice): Promise<ShareResult> {
 		try {
-			console.log('=== Starting Complete Feishu Share Process ===');
-			console.log('Title:', title);
-			console.log('Content length:', content.length);
-
 			// 更新状态：检查授权
 			if (statusNotice) {
 				statusNotice.setMessage('🔍 正在检查授权状态...');
@@ -289,14 +255,11 @@ export class FeishuApiService {
 			}
 
 			// 第一步：上传 Markdown 文件
-			console.log('Step 1: Uploading markdown file...');
 			const uploadResult = await this.uploadMarkdownFile(title, content);
 
 			if (!uploadResult.success) {
 				throw new Error(uploadResult.error || '文件上传失败');
 			}
-
-			console.log('File uploaded successfully, token:', uploadResult.fileToken);
 
 			if (!uploadResult.fileToken) {
 				throw new Error('文件上传成功但未获取到文件令牌');
@@ -310,36 +273,20 @@ export class FeishuApiService {
 			}
 
 			// 第二步：尝试导入任务（15秒超时策略）
-			console.log('Step 2: Attempting import task with 15s timeout...');
-			console.log('File token for import:', uploadResult.fileToken);
 			try {
 				// 处理文件名：移除 .md 扩展名
 				const cleanTitle = title.endsWith('.md') ? title.slice(0, -3) : title;
-				console.log('Clean title for import:', cleanTitle);
-
 				const importResult = await this.createImportTaskWithCorrectFolder(uploadResult.fileToken, cleanTitle);
-				console.log('Import task creation result:', importResult);
-
 				if (importResult.success && importResult.ticket) {
-					console.log('✅ Import task created successfully, ticket:', importResult.ticket);
-
 					// 第三步：等待导入完成（15秒超时）
 					console.log('Step 3: Waiting for import completion (15s timeout)...');
 					const finalResult = await this.waitForImportCompletionWithTimeout(importResult.ticket, 15000);
-					console.log('Import completion result:', finalResult);
-
 					if (finalResult.success && finalResult.documentToken) {
 						const docUrl = `https://feishu.cn/docx/${finalResult.documentToken}`;
-						console.log('=== Import Process Completed Successfully ===');
-						console.log('Document token:', finalResult.documentToken);
-						console.log('Document URL:', docUrl);
-
 						// 第四步：删除源文件（转换成功后）
-						console.log('Step 4: Deleting source file after successful conversion...');
 						try {
 							await this.deleteSourceFile(uploadResult.fileToken);
-							console.log('✅ Source file deleted successfully');
-						} catch (deleteError) {
+							} catch (deleteError) {
 							console.warn('⚠️ Failed to delete source file:', deleteError.message);
 							// 不影响主流程，继续返回成功结果
 						}
@@ -445,9 +392,6 @@ export class FeishuApiService {
 	 */
 	private async uploadMarkdownFile(fileName: string, content: string): Promise<{success: boolean, fileToken?: string, url?: string, error?: string}> {
 		try {
-			console.log('Uploading markdown file:', fileName);
-			console.log('Content length:', content.length);
-
 			// 确保token有效
 			const tokenValid = await this.ensureValidToken();
 			if (!tokenValid) {
@@ -461,10 +405,6 @@ export class FeishuApiService {
 			// 将内容转换为UTF-8字节
 			const utf8Content = new TextEncoder().encode(content);
 			const contentLength = utf8Content.length;
-
-			console.log('File name:', finalFileName);
-			console.log('UTF-8 content length:', contentLength);
-			console.log('Original content length:', content.length);
 
 			// 手动构建multipart/form-data（完全按照成功的Python版本格式）
 			const parts: string[] = [];
@@ -522,9 +462,6 @@ export class FeishuApiService {
 			offset += utf8Content.length;
 			bodyBytes.set(endBoundaryBytes, offset);
 
-			console.log('Uploading to:', FEISHU_CONFIG.UPLOAD_URL);
-			console.log('Total body size:', bodyBytes.length);
-
 			const response = await requestUrl({
 				url: FEISHU_CONFIG.UPLOAD_URL,
 				method: 'POST',
@@ -536,8 +473,6 @@ export class FeishuApiService {
 			});
 
 			const data: FeishuFileUploadResponse = response.json || JSON.parse(response.text);
-
-			console.log('Upload response:', data);
 
 			if (data.code === 0) {
 				// 构建文件访问URL
@@ -592,7 +527,6 @@ export class FeishuApiService {
 			if (data.code === 0) {
 				this.settings.accessToken = data.data.access_token;
 				this.settings.refreshToken = data.data.refresh_token;
-				console.log('Token refreshed successfully');
 				return true;
 			} else {
 				console.error('Token refresh failed:', data);
@@ -637,7 +571,6 @@ export class FeishuApiService {
 				return true;
 			} else if (data.code === 99991664) {
 				// Token过期，尝试刷新
-				console.log('Token expired, trying to refresh...');
 				return await this.refreshAccessToken();
 			} else {
 				return false;
@@ -653,10 +586,7 @@ export class FeishuApiService {
 	 * 增强的token验证，支持自动重新授权
 	 */
 	async ensureValidTokenWithReauth(statusNotice?: Notice): Promise<boolean> {
-		console.log('🔍 检查token有效性...');
-
 		if (!this.settings.accessToken) {
-			console.log('❌ 没有access token，需要重新授权');
 			return await this.triggerReauth('没有访问令牌', statusNotice);
 		}
 
@@ -673,30 +603,23 @@ export class FeishuApiService {
 			const data = response.json || JSON.parse(response.text);
 
 			if (data.code === 0) {
-				console.log('✅ Token有效');
 				return true;
 			} else if (this.isTokenExpiredError(data.code)) {
 				// Token过期，尝试刷新
-				console.log('⏰ Token过期，尝试刷新...');
 				const refreshSuccess = await this.refreshAccessToken();
 
 				if (refreshSuccess) {
-					console.log('✅ Token刷新成功');
 					return true;
 				} else {
-					console.log('❌ Token刷新失败，需要重新授权');
 					const reauthSuccess = await this.triggerReauth('Token刷新失败', statusNotice);
 					if (reauthSuccess) {
-						console.log('✅ 重新授权成功，token已更新');
 						return true;
 					}
 					return false;
 				}
 			} else {
-				console.log('❌ Token无效，错误码:', data.code);
 				const reauthSuccess = await this.triggerReauth(`Token无效 (错误码: ${data.code})`, statusNotice);
 				if (reauthSuccess) {
-					console.log('✅ 重新授权成功，token已更新');
 					return true;
 				}
 				return false;
@@ -706,7 +629,6 @@ export class FeishuApiService {
 			console.error('Token验证出错:', error);
 			const reauthSuccess = await this.triggerReauth('Token验证出错', statusNotice);
 			if (reauthSuccess) {
-				console.log('✅ 重新授权成功，token已更新');
 				return true;
 			}
 			return false;
@@ -732,8 +654,6 @@ export class FeishuApiService {
 	 * 触发重新授权流程，支持等待授权完成
 	 */
 	private async triggerReauth(reason: string, statusNotice?: Notice): Promise<boolean> {
-		console.log(`🔄 触发重新授权: ${reason}`);
-
 		// 更新状态提示
 		if (statusNotice) {
 			statusNotice.setMessage(`🔄 ${reason}，正在自动重新授权...`);
@@ -756,8 +676,6 @@ export class FeishuApiService {
 
 			// 生成授权URL
 			const authUrl = this.generateAuthUrl();
-			console.log('🌐 打开授权页面:', authUrl);
-
 			// 打开浏览器进行授权
 			window.open(authUrl, '_blank');
 
@@ -783,11 +701,8 @@ export class FeishuApiService {
 	 */
 	private async waitForReauth(statusNotice?: Notice): Promise<boolean> {
 		return new Promise((resolve) => {
-			console.log('⏳ 等待授权完成...');
-
 			// 设置超时时间（5分钟）
 			const timeout = setTimeout(() => {
-				console.log('⏰ 授权等待超时');
 				window.removeEventListener('feishu-auth-success', successHandler);
 
 				const timeoutMsg = '⏰ 授权等待超时，请手动重试分享';
@@ -802,7 +717,6 @@ export class FeishuApiService {
 
 			// 监听授权成功事件
 			const successHandler = () => {
-				console.log('✅ 收到授权成功事件，准备继续分享');
 				clearTimeout(timeout);
 				window.removeEventListener('feishu-auth-success', successHandler);
 
@@ -813,7 +727,6 @@ export class FeishuApiService {
 
 				// 短暂延迟确保设置已保存
 				setTimeout(() => {
-					console.log('🔄 授权完成，继续分享流程');
 					resolve(true);
 				}, 1000);
 			};
@@ -827,10 +740,6 @@ export class FeishuApiService {
 	 */
 	private async createImportTaskWithCorrectFolder(fileToken: string, title: string): Promise<{success: boolean, ticket?: string, error?: string}> {
 		try {
-			console.log('Creating import task for file:', fileToken, 'title:', title);
-			console.log('Current settings - defaultFolderId:', this.settings.defaultFolderId);
-			console.log('Current settings - defaultFolderName:', this.settings.defaultFolderName);
-
 			// 使用正确的point格式（与成功版本一致）
 			const importData = {
 				file_extension: 'md',
@@ -904,15 +813,12 @@ export class FeishuApiService {
 				};
 			}
 
-			console.log(`Checking import status, attempt ${attempt}/${maxAttempts}, elapsed: ${elapsedTime}ms...`);
-
 			try {
 				const result = await this.checkImportStatus(ticket);
 
 				if (result.success && (result.status === 3 || result.status === 0)) {
 					if (result.documentToken) {
 						const totalTime = Date.now() - startTime;
-						console.log(`Import completed successfully in ${totalTime}ms, document token:`, result.documentToken);
 						return {
 							success: true,
 							documentToken: result.documentToken
@@ -925,8 +831,7 @@ export class FeishuApiService {
 					console.warn(`Import shows failure status (${result.status}), but continuing to wait...`);
 
 					if (attempt <= 8) { // 前8次尝试时，即使显示失败也继续等待
-						console.log(`Attempt ${attempt}/8: Ignoring failure status, continuing to wait...`);
-					} else {
+						} else {
 						// 8次后才真正认为失败
 						console.error('Import failed after extended waiting');
 						return {
@@ -935,8 +840,7 @@ export class FeishuApiService {
 						};
 					}
 				} else {
-					console.log(`Job status: ${result.status}, continuing to wait...`);
-				}
+					}
 
 				// 渐进式延迟
 				if (attempt < maxAttempts) {
@@ -1020,8 +924,6 @@ export class FeishuApiService {
 	 */
 	private async deleteSourceFile(fileToken: string): Promise<void> {
 		try {
-			console.log('🗑️ Deleting source file:', fileToken);
-
 			// 方法1：尝试移动到回收站
 			let response;
 			try {
@@ -1047,9 +949,6 @@ export class FeishuApiService {
 				});
 			}
 
-			console.log('Delete response status:', response.status);
-			console.log('Delete response:', response.text);
-
 			if (response.status !== 200) {
 				throw new Error(`删除请求失败，状态码: ${response.status}`);
 			}
@@ -1061,13 +960,11 @@ export class FeishuApiService {
 				// 不抛出错误，因为文件可能已经被删除或移动
 				console.log('📝 Source file deletion completed (may have been moved to trash)');
 			} else {
-				console.log('✅ Source file deleted successfully');
-			}
+				}
 
 		} catch (error) {
 			console.error('❌ Delete source file error:', error);
 			// 不抛出错误，避免影响整个分享流程
-			console.log('⚠️ Source file deletion failed, but continuing...');
-		}
+			}
 	}
 }

@@ -11,8 +11,6 @@ export default class FeishuSharePlugin extends Plugin {
 	markdownProcessor: MarkdownProcessor;
 
 	async onload() {
-		console.log('Loading Feishu Share Direct Plugin');
-
 		// 加载设置
 		await this.loadSettings();
 
@@ -22,7 +20,6 @@ export default class FeishuSharePlugin extends Plugin {
 
 		// 注册自定义协议处理器，实现自动授权回调
 		this.registerObsidianProtocolHandler('feishu-auth', (params) => {
-			console.log('Received OAuth callback via protocol:', params);
 			this.handleOAuthCallback(params);
 		});
 
@@ -68,47 +65,27 @@ export default class FeishuSharePlugin extends Plugin {
 			})
 		);
 
-		console.log('Feishu Share Direct Plugin loaded successfully');
-	}
+		}
 
 	onunload() {
-		console.log('Unloading Feishu Share Direct Plugin');
-	}
+		}
 
 	async loadSettings() {
 		const loadedData = await this.loadData();
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-		console.log('Settings loaded:', {
-			appId: this.settings.appId,
-			appSecret: this.settings.appSecret ? '***' : 'empty',
-			hasUserInfo: !!this.settings.userInfo,
-			defaultFolderId: this.settings.defaultFolderId,
-			defaultFolderName: this.settings.defaultFolderName,
-			loadedData: loadedData
-		});
-	}
+		}
 
 	async saveSettings() {
-		console.log('Saving settings:', {
-			appId: this.settings.appId,
-			appSecret: this.settings.appSecret ? '***' : 'empty',
-			hasUserInfo: !!this.settings.userInfo,
-			defaultFolderId: this.settings.defaultFolderId,
-			defaultFolderName: this.settings.defaultFolderName
-		});
 		await this.saveData(this.settings);
 		if (this.feishuApi) {
 			this.feishuApi.updateSettings(this.settings);
 		}
-		console.log('Settings saved successfully');
-	}
+		}
 
 	/**
 	 * 处理OAuth回调
 	 */
 	private async handleOAuthCallback(params: any) {
-		console.log('Processing OAuth callback...', params);
-
 		if (params.code) {
 			new Notice('🔄 正在处理授权回调...');
 
@@ -179,16 +156,8 @@ export default class FeishuSharePlugin extends Plugin {
 			// 获取文件标题（去掉.md扩展名）
 			const title = file.basename;
 
-			console.log('=== Starting Feishu Share ===');
-			console.log('File:', file.path);
-			console.log('Title:', title);
-			console.log('Raw content length:', rawContent.length);
-
 			// 使用Markdown处理器处理内容
-			console.log('Processing markdown content...');
 			const processedContent = this.markdownProcessor.processComplete(rawContent);
-			console.log('Processed content length:', processedContent.length);
-
 			// 调用API分享（内部会自动检查和刷新token，如果需要重新授权会等待完成）
 			const result = await this.feishuApi.shareMarkdown(title, processedContent, statusNotice);
 
@@ -196,12 +165,8 @@ export default class FeishuSharePlugin extends Plugin {
 			statusNotice.hide();
 
 			if (result.success) {
-				console.log('Share successful:', result);
-
 				// 显示美观的成功通知
 				if (result.url) {
-					console.log('📋 文档链接:', result.url);
-
 					// 创建美观的成功通知
 					const linkNotice = new Notice('', 10000); // 10秒后自动消失
 					linkNotice.noticeEl.empty();
@@ -326,19 +291,19 @@ export default class FeishuSharePlugin extends Plugin {
 						try {
 							if (result.url) {
 								await navigator.clipboard.writeText(result.url);
-								copyBtn.innerHTML = '✅ 已复制';
+								copyBtn.textContent = '✅ 已复制';
 								copyBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
 								setTimeout(() => {
-									copyBtn.innerHTML = '📋 复制链接';
+									copyBtn.textContent = '📋 复制链接';
 									copyBtn.style.background = 'linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))';
 								}, 2000);
 							}
 						} catch (error) {
 							console.error('复制失败:', error);
-							copyBtn.innerHTML = '❌ 复制失败';
+							copyBtn.textContent = '❌ 复制失败';
 							copyBtn.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
 							setTimeout(() => {
-								copyBtn.innerHTML = '📋 复制链接';
+								copyBtn.textContent = '📋 复制链接';
 								copyBtn.style.background = 'linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))';
 							}, 2000);
 						}
