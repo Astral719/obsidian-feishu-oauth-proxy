@@ -151,66 +151,88 @@ export class FeishuSettingTab extends PluginSettingTab {
 		containerEl.createEl('h3', { text: '📖 使用说明' });
 
 		const usageEl = containerEl.createDiv('setting-item-description');
-		usageEl.innerHTML = `
-			<div style="
-				background: var(--background-secondary);
-				border: 1px solid var(--background-modifier-border);
-				padding: 16px;
-				border-radius: 8px;
-				margin-bottom: 16px;
-				border-left: 4px solid var(--color-accent);
-			">
-				<strong style="color: var(--text-accent); font-size: 14px;">📋 快速配置指南</strong>
-				<ol style="margin: 12px 0 0 0; padding-left: 20px; color: var(--text-normal);">
-					<li style="margin-bottom: 8px;">
-						<strong>创建飞书应用：</strong>访问
-						<a href="https://open.feishu.cn/app" target="_blank" style="color: var(--text-accent); text-decoration: none;">
-							飞书开放平台 🔗
-						</a>
-						创建"企业自建应用"，获取App ID和App Secret
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>配置OAuth回调：</strong>在飞书应用"安全设置"中添加回调地址：
-						<br><code style="background: var(--background-primary); padding: 2px 6px; border-radius: 3px; font-size: 12px;">https://md2feishu.xinqi.life/oauth-callback</code>
-						<br><span style="font-size: 12px; color: var(--text-muted);">💡 默认使用我们的回调服务，代码开源可自行部署</span>
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>添加应用权限：</strong>在"权限管理"中添加以下权限：
-						<ul style="margin: 4px 0 0 20px; font-size: 12px; color: var(--text-muted);">
-							<li>contact:user.base:readonly - 获取用户基本信息</li>
-							<li>docx:document - 创建、编辑文档</li>
-							<li>drive:drive - 访问云空间文件</li>
-						</ul>
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>完成授权：</strong>在上方输入App ID和App Secret，点击"🚀 一键授权"
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>选择文件夹：</strong>授权后可选择默认保存文件夹（可选）
-					</li>
-					<li style="margin-bottom: 0;">
-						<strong>开始使用：</strong>右键MD文件选择"📤 分享到飞书"，或使用命令面板
-					</li>
-				</ol>
-			</div>
-			<div style="
-				background: var(--background-secondary);
-				border: 1px solid var(--background-modifier-border);
-				padding: 12px;
-				border-radius: 6px;
-				border-left: 4px solid var(--color-accent);
-			">
-				<strong style="color: var(--text-accent);">🎉 功能特色：</strong>
-				<ul style="margin: 8px 0 0 20px; color: var(--text-normal);">
-					<li style="margin-bottom: 4px;">✅ <strong>智能授权：</strong>自动检测token状态，失效时自动重新授权</li>
-					<li style="margin-bottom: 4px;">✅ <strong>无缝分享：</strong>一键分享，自动处理授权和转换流程</li>
-					<li style="margin-bottom: 4px;">✅ <strong>格式保持：</strong>完美保持Markdown格式，包括图片、表格、代码块</li>
-					<li style="margin-bottom: 4px;">✅ <strong>智能处理：</strong>自动处理Obsidian双向链接、标签等语法</li>
-					<li style="margin-bottom: 4px;">✅ <strong>可视化选择：</strong>支持浏览和选择目标文件夹</li>
-					<li style="margin-bottom: 0;">✅ <strong>一键复制：</strong>分享成功后可一键复制文档链接</li>
-				</ul>
-			</div>
-		`;
+
+		// 详细使用说明链接
+		const usageLinkDiv = usageEl.createDiv('feishu-usage-link');
+		usageLinkDiv.createEl('strong', { text: '📚 详细使用说明' });
+		usageLinkDiv.createEl('br');
+		const usageLink = usageLinkDiv.createEl('a', {
+			text: '🔗 点击查看完整使用教程',
+			href: 'https://l0c34idk7v.feishu.cn/docx/Zk2VdWJPfoqmZhxPSJmcMfSbnHe'
+		});
+		usageLink.target = '_blank';
+
+		// 快速配置指南
+		const guideDiv = usageEl.createDiv('feishu-usage-guide');
+
+		const guideTitle = guideDiv.createEl('strong', {
+			text: '📋 快速配置指南',
+			cls: 'feishu-usage-guide-title'
+		});
+
+		const stepsList = guideDiv.createEl('ol');
+
+		// 步骤1
+		const step1 = stepsList.createEl('li');
+		step1.createEl('strong', { text: '创建飞书应用：' });
+		step1.appendText('访问 ');
+		const platformLink = step1.createEl('a', {
+			text: '飞书开放平台 🔗',
+			href: 'https://open.feishu.cn/app'
+		});
+		platformLink.target = '_blank';
+		step1.appendText(' 创建"企业自建应用"，获取App ID和App Secret');
+
+		// 步骤2
+		const step2 = stepsList.createEl('li');
+		step2.createEl('strong', { text: '配置OAuth回调：' });
+		step2.appendText('在飞书应用"安全设置"中添加回调地址：');
+		step2.createEl('br');
+		step2.createEl('code', { text: 'https://md2feishu.xinqi.life/oauth-callback' });
+		step2.createEl('br');
+		step2.createEl('span', {
+			text: '💡 默认使用我们的回调服务，代码开源可自行部署',
+			cls: 'hint'
+		});
+
+		// 步骤3
+		const step3 = stepsList.createEl('li');
+		step3.createEl('strong', { text: '添加应用权限：' });
+		step3.appendText('在"权限管理"中添加以下权限：');
+		const permList = step3.createEl('ul');
+		permList.createEl('li', { text: 'contact:user.base:readonly - 获取用户基本信息' });
+		permList.createEl('li', { text: 'docx:document - 创建、编辑文档' });
+		permList.createEl('li', { text: 'drive:drive - 访问云空间文件' });
+
+		// 步骤4
+		const step4 = stepsList.createEl('li');
+		step4.createEl('strong', { text: '完成授权：' });
+		step4.appendText('在上方输入App ID和App Secret，点击"🚀 一键授权"');
+
+		// 步骤5
+		const step5 = stepsList.createEl('li');
+		step5.createEl('strong', { text: '选择文件夹：' });
+		step5.appendText('授权后可选择默认保存文件夹（可选）');
+
+		// 步骤6
+		const step6 = stepsList.createEl('li');
+		step6.createEl('strong', { text: '开始使用：' });
+		step6.appendText('右键MD文件选择"📤 分享到飞书"，或使用命令面板');
+
+		// 功能特色
+		const featuresDiv = usageEl.createDiv('feishu-usage-guide');
+		featuresDiv.createEl('strong', {
+			text: '🎉 功能特色：',
+			cls: 'feishu-usage-guide-title'
+		});
+
+		const featuresList = featuresDiv.createEl('ul');
+		featuresList.createEl('li', { text: '✅ 智能授权：自动检测token状态，失效时自动重新授权' });
+		featuresList.createEl('li', { text: '✅ 无缝分享：一键分享，自动处理授权和转换流程' });
+		featuresList.createEl('li', { text: '✅ 格式保持：完美保持Markdown格式，包括图片、表格、代码块' });
+		featuresList.createEl('li', { text: '✅ 智能处理：自动处理Obsidian双向链接、标签等语法' });
+		featuresList.createEl('li', { text: '✅ 可视化选择：支持浏览和选择目标文件夹' });
+		featuresList.createEl('li', { text: '✅ 一键复制：分享成功后可一键复制文档链接' });
 
 	// 添加"了解作者"按钮
 	this.addAuthorSection(containerEl);

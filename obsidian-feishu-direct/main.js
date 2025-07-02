@@ -1250,66 +1250,67 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     }
     containerEl.createEl("h3", { text: "\u{1F4D6} \u4F7F\u7528\u8BF4\u660E" });
     const usageEl = containerEl.createDiv("setting-item-description");
-    usageEl.innerHTML = `
-			<div style="
-				background: var(--background-secondary);
-				border: 1px solid var(--background-modifier-border);
-				padding: 16px;
-				border-radius: 8px;
-				margin-bottom: 16px;
-				border-left: 4px solid var(--color-accent);
-			">
-				<strong style="color: var(--text-accent); font-size: 14px;">\u{1F4CB} \u5FEB\u901F\u914D\u7F6E\u6307\u5357</strong>
-				<ol style="margin: 12px 0 0 0; padding-left: 20px; color: var(--text-normal);">
-					<li style="margin-bottom: 8px;">
-						<strong>\u521B\u5EFA\u98DE\u4E66\u5E94\u7528\uFF1A</strong>\u8BBF\u95EE
-						<a href="https://open.feishu.cn/app" target="_blank" style="color: var(--text-accent); text-decoration: none;">
-							\u98DE\u4E66\u5F00\u653E\u5E73\u53F0 \u{1F517}
-						</a>
-						\u521B\u5EFA"\u4F01\u4E1A\u81EA\u5EFA\u5E94\u7528"\uFF0C\u83B7\u53D6App ID\u548CApp Secret
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>\u914D\u7F6EOAuth\u56DE\u8C03\uFF1A</strong>\u5728\u98DE\u4E66\u5E94\u7528"\u5B89\u5168\u8BBE\u7F6E"\u4E2D\u6DFB\u52A0\u56DE\u8C03\u5730\u5740\uFF1A
-						<br><code style="background: var(--background-primary); padding: 2px 6px; border-radius: 3px; font-size: 12px;">https://md2feishu.xinqi.life/oauth-callback</code>
-						<br><span style="font-size: 12px; color: var(--text-muted);">\u{1F4A1} \u9ED8\u8BA4\u4F7F\u7528\u6211\u4EEC\u7684\u56DE\u8C03\u670D\u52A1\uFF0C\u4EE3\u7801\u5F00\u6E90\u53EF\u81EA\u884C\u90E8\u7F72</span>
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>\u6DFB\u52A0\u5E94\u7528\u6743\u9650\uFF1A</strong>\u5728"\u6743\u9650\u7BA1\u7406"\u4E2D\u6DFB\u52A0\u4EE5\u4E0B\u6743\u9650\uFF1A
-						<ul style="margin: 4px 0 0 20px; font-size: 12px; color: var(--text-muted);">
-							<li>contact:user.base:readonly - \u83B7\u53D6\u7528\u6237\u57FA\u672C\u4FE1\u606F</li>
-							<li>docx:document - \u521B\u5EFA\u3001\u7F16\u8F91\u6587\u6863</li>
-							<li>drive:drive - \u8BBF\u95EE\u4E91\u7A7A\u95F4\u6587\u4EF6</li>
-						</ul>
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>\u5B8C\u6210\u6388\u6743\uFF1A</strong>\u5728\u4E0A\u65B9\u8F93\u5165App ID\u548CApp Secret\uFF0C\u70B9\u51FB"\u{1F680} \u4E00\u952E\u6388\u6743"
-					</li>
-					<li style="margin-bottom: 8px;">
-						<strong>\u9009\u62E9\u6587\u4EF6\u5939\uFF1A</strong>\u6388\u6743\u540E\u53EF\u9009\u62E9\u9ED8\u8BA4\u4FDD\u5B58\u6587\u4EF6\u5939\uFF08\u53EF\u9009\uFF09
-					</li>
-					<li style="margin-bottom: 0;">
-						<strong>\u5F00\u59CB\u4F7F\u7528\uFF1A</strong>\u53F3\u952EMD\u6587\u4EF6\u9009\u62E9"\u{1F4E4} \u5206\u4EAB\u5230\u98DE\u4E66"\uFF0C\u6216\u4F7F\u7528\u547D\u4EE4\u9762\u677F
-					</li>
-				</ol>
-			</div>
-			<div style="
-				background: var(--background-secondary);
-				border: 1px solid var(--background-modifier-border);
-				padding: 12px;
-				border-radius: 6px;
-				border-left: 4px solid var(--color-accent);
-			">
-				<strong style="color: var(--text-accent);">\u{1F389} \u529F\u80FD\u7279\u8272\uFF1A</strong>
-				<ul style="margin: 8px 0 0 20px; color: var(--text-normal);">
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u667A\u80FD\u6388\u6743\uFF1A</strong>\u81EA\u52A8\u68C0\u6D4Btoken\u72B6\u6001\uFF0C\u5931\u6548\u65F6\u81EA\u52A8\u91CD\u65B0\u6388\u6743</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u65E0\u7F1D\u5206\u4EAB\uFF1A</strong>\u4E00\u952E\u5206\u4EAB\uFF0C\u81EA\u52A8\u5904\u7406\u6388\u6743\u548C\u8F6C\u6362\u6D41\u7A0B</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u683C\u5F0F\u4FDD\u6301\uFF1A</strong>\u5B8C\u7F8E\u4FDD\u6301Markdown\u683C\u5F0F\uFF0C\u5305\u62EC\u56FE\u7247\u3001\u8868\u683C\u3001\u4EE3\u7801\u5757</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u667A\u80FD\u5904\u7406\uFF1A</strong>\u81EA\u52A8\u5904\u7406Obsidian\u53CC\u5411\u94FE\u63A5\u3001\u6807\u7B7E\u7B49\u8BED\u6CD5</li>
-					<li style="margin-bottom: 4px;">\u2705 <strong>\u53EF\u89C6\u5316\u9009\u62E9\uFF1A</strong>\u652F\u6301\u6D4F\u89C8\u548C\u9009\u62E9\u76EE\u6807\u6587\u4EF6\u5939</li>
-					<li style="margin-bottom: 0;">\u2705 <strong>\u4E00\u952E\u590D\u5236\uFF1A</strong>\u5206\u4EAB\u6210\u529F\u540E\u53EF\u4E00\u952E\u590D\u5236\u6587\u6863\u94FE\u63A5</li>
-				</ul>
-			</div>
-		`;
+    const usageLinkDiv = usageEl.createDiv("feishu-usage-link");
+    usageLinkDiv.createEl("strong", { text: "\u{1F4DA} \u8BE6\u7EC6\u4F7F\u7528\u8BF4\u660E" });
+    usageLinkDiv.createEl("br");
+    const usageLink = usageLinkDiv.createEl("a", {
+      text: "\u{1F517} \u70B9\u51FB\u67E5\u770B\u5B8C\u6574\u4F7F\u7528\u6559\u7A0B",
+      href: "https://l0c34idk7v.feishu.cn/docx/Zk2VdWJPfoqmZhxPSJmcMfSbnHe"
+    });
+    usageLink.target = "_blank";
+    const guideDiv = usageEl.createDiv("feishu-usage-guide");
+    const guideTitle = guideDiv.createEl("strong", {
+      text: "\u{1F4CB} \u5FEB\u901F\u914D\u7F6E\u6307\u5357",
+      cls: "feishu-usage-guide-title"
+    });
+    const stepsList = guideDiv.createEl("ol");
+    const step1 = stepsList.createEl("li");
+    step1.createEl("strong", { text: "\u521B\u5EFA\u98DE\u4E66\u5E94\u7528\uFF1A" });
+    step1.appendText("\u8BBF\u95EE ");
+    const platformLink = step1.createEl("a", {
+      text: "\u98DE\u4E66\u5F00\u653E\u5E73\u53F0 \u{1F517}",
+      href: "https://open.feishu.cn/app"
+    });
+    platformLink.target = "_blank";
+    step1.appendText(' \u521B\u5EFA"\u4F01\u4E1A\u81EA\u5EFA\u5E94\u7528"\uFF0C\u83B7\u53D6App ID\u548CApp Secret');
+    const step2 = stepsList.createEl("li");
+    step2.createEl("strong", { text: "\u914D\u7F6EOAuth\u56DE\u8C03\uFF1A" });
+    step2.appendText('\u5728\u98DE\u4E66\u5E94\u7528"\u5B89\u5168\u8BBE\u7F6E"\u4E2D\u6DFB\u52A0\u56DE\u8C03\u5730\u5740\uFF1A');
+    step2.createEl("br");
+    step2.createEl("code", { text: "https://md2feishu.xinqi.life/oauth-callback" });
+    step2.createEl("br");
+    step2.createEl("span", {
+      text: "\u{1F4A1} \u9ED8\u8BA4\u4F7F\u7528\u6211\u4EEC\u7684\u56DE\u8C03\u670D\u52A1\uFF0C\u4EE3\u7801\u5F00\u6E90\u53EF\u81EA\u884C\u90E8\u7F72",
+      cls: "hint"
+    });
+    const step3 = stepsList.createEl("li");
+    step3.createEl("strong", { text: "\u6DFB\u52A0\u5E94\u7528\u6743\u9650\uFF1A" });
+    step3.appendText('\u5728"\u6743\u9650\u7BA1\u7406"\u4E2D\u6DFB\u52A0\u4EE5\u4E0B\u6743\u9650\uFF1A');
+    const permList = step3.createEl("ul");
+    permList.createEl("li", { text: "contact:user.base:readonly - \u83B7\u53D6\u7528\u6237\u57FA\u672C\u4FE1\u606F" });
+    permList.createEl("li", { text: "docx:document - \u521B\u5EFA\u3001\u7F16\u8F91\u6587\u6863" });
+    permList.createEl("li", { text: "drive:drive - \u8BBF\u95EE\u4E91\u7A7A\u95F4\u6587\u4EF6" });
+    const step4 = stepsList.createEl("li");
+    step4.createEl("strong", { text: "\u5B8C\u6210\u6388\u6743\uFF1A" });
+    step4.appendText('\u5728\u4E0A\u65B9\u8F93\u5165App ID\u548CApp Secret\uFF0C\u70B9\u51FB"\u{1F680} \u4E00\u952E\u6388\u6743"');
+    const step5 = stepsList.createEl("li");
+    step5.createEl("strong", { text: "\u9009\u62E9\u6587\u4EF6\u5939\uFF1A" });
+    step5.appendText("\u6388\u6743\u540E\u53EF\u9009\u62E9\u9ED8\u8BA4\u4FDD\u5B58\u6587\u4EF6\u5939\uFF08\u53EF\u9009\uFF09");
+    const step6 = stepsList.createEl("li");
+    step6.createEl("strong", { text: "\u5F00\u59CB\u4F7F\u7528\uFF1A" });
+    step6.appendText('\u53F3\u952EMD\u6587\u4EF6\u9009\u62E9"\u{1F4E4} \u5206\u4EAB\u5230\u98DE\u4E66"\uFF0C\u6216\u4F7F\u7528\u547D\u4EE4\u9762\u677F');
+    const featuresDiv = usageEl.createDiv("feishu-usage-guide");
+    featuresDiv.createEl("strong", {
+      text: "\u{1F389} \u529F\u80FD\u7279\u8272\uFF1A",
+      cls: "feishu-usage-guide-title"
+    });
+    const featuresList = featuresDiv.createEl("ul");
+    featuresList.createEl("li", { text: "\u2705 \u667A\u80FD\u6388\u6743\uFF1A\u81EA\u52A8\u68C0\u6D4Btoken\u72B6\u6001\uFF0C\u5931\u6548\u65F6\u81EA\u52A8\u91CD\u65B0\u6388\u6743" });
+    featuresList.createEl("li", { text: "\u2705 \u65E0\u7F1D\u5206\u4EAB\uFF1A\u4E00\u952E\u5206\u4EAB\uFF0C\u81EA\u52A8\u5904\u7406\u6388\u6743\u548C\u8F6C\u6362\u6D41\u7A0B" });
+    featuresList.createEl("li", { text: "\u2705 \u683C\u5F0F\u4FDD\u6301\uFF1A\u5B8C\u7F8E\u4FDD\u6301Markdown\u683C\u5F0F\uFF0C\u5305\u62EC\u56FE\u7247\u3001\u8868\u683C\u3001\u4EE3\u7801\u5757" });
+    featuresList.createEl("li", { text: "\u2705 \u667A\u80FD\u5904\u7406\uFF1A\u81EA\u52A8\u5904\u7406Obsidian\u53CC\u5411\u94FE\u63A5\u3001\u6807\u7B7E\u7B49\u8BED\u6CD5" });
+    featuresList.createEl("li", { text: "\u2705 \u53EF\u89C6\u5316\u9009\u62E9\uFF1A\u652F\u6301\u6D4F\u89C8\u548C\u9009\u62E9\u76EE\u6807\u6587\u4EF6\u5939" });
+    featuresList.createEl("li", { text: "\u2705 \u4E00\u952E\u590D\u5236\uFF1A\u5206\u4EAB\u6210\u529F\u540E\u53EF\u4E00\u952E\u590D\u5236\u6587\u6863\u94FE\u63A5" });
     this.addAuthorSection(containerEl);
   }
   addAuthorSection(containerEl) {
