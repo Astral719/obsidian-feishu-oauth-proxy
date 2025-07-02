@@ -172,139 +172,62 @@ export default class FeishuSharePlugin extends Plugin {
 					linkNotice.noticeEl.empty();
 
 					// 重置Notice的默认样式
-					linkNotice.noticeEl.style.cssText = `
-						background: transparent !important;
-						border: none !important;
-						box-shadow: none !important;
-						padding: 0 !important;
-						margin: 0 !important;
-					`;
+					linkNotice.noticeEl.addClass('feishu-notice-reset');
 
 					const container = linkNotice.noticeEl.createDiv('feishu-success-container');
-					container.style.cssText = `
-						position: relative;
-						display: flex;
-						flex-direction: column;
-						gap: 16px;
-						padding: 20px;
-						background: var(--background-primary);
-						border-radius: 12px;
-						border: 1px solid var(--background-modifier-border);
-						box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-						min-width: 320px;
-						max-width: 400px;
-					`;
 
 					// 顶部区域：图标 + 标题
 					const header = container.createDiv('feishu-success-header');
-					header.style.cssText = `
-						display: flex;
-						align-items: center;
-						gap: 12px;
-					`;
 
 					const iconContainer = header.createDiv('feishu-icon-container');
-					iconContainer.style.cssText = `
-						width: 48px;
-						height: 48px;
-						background: linear-gradient(135deg, #4CAF50, #45a049);
-						border-radius: 50%;
-						display: flex;
-						align-items: center;
-						justify-content: center;
-						box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-					`;
 
 					const icon = iconContainer.createEl('span', {
 						text: '✓',
 						cls: 'feishu-success-icon'
 					});
-					icon.style.cssText = `
-						font-size: 24px;
-						font-weight: bold;
-						color: white;
-					`;
 
 					const headerText = header.createDiv('feishu-header-text');
-					headerText.style.cssText = `
-						flex: 1;
-					`;
 
 					const title = headerText.createEl('div', {
 						text: '分享成功！',
 						cls: 'feishu-success-title'
 					});
-					title.style.cssText = `
-						font-size: 18px;
-						font-weight: 600;
-						color: var(--text-normal);
-						margin-bottom: 4px;
-					`;
 
 					const subtitle = headerText.createEl('div', {
 						text: `文档：${result.title}`,
 						cls: 'feishu-success-subtitle'
 					});
-					subtitle.style.cssText = `
-						font-size: 14px;
-						color: var(--text-muted);
-						line-height: 1.4;
-					`;
 
 					// 按钮区域
 					const buttonGroup = container.createDiv('feishu-button-group');
-					buttonGroup.style.cssText = `
-						display: flex;
-						gap: 12px;
-					`;
 
 					// 复制按钮（主要操作）
 					const copyBtn = buttonGroup.createEl('button', {
 						text: '📋 复制链接',
 						cls: 'feishu-copy-btn'
 					});
-					copyBtn.style.cssText = `
-						flex: 1;
-						padding: 12px 16px;
-						background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
-						color: var(--text-on-accent);
-						border: none;
-						border-radius: 8px;
-						cursor: pointer;
-						font-size: 14px;
-						font-weight: 500;
-						transition: all 0.3s ease;
-						box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-					`;
 
-					copyBtn.onmouseenter = () => {
-						copyBtn.style.transform = 'translateY(-2px)';
-						copyBtn.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)';
-					};
 
-					copyBtn.onmouseleave = () => {
-						copyBtn.style.transform = 'translateY(0)';
-						copyBtn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-					};
+
 
 					copyBtn.onclick = async () => {
 						try {
 							if (result.url) {
 								await navigator.clipboard.writeText(result.url);
 								copyBtn.textContent = '✅ 已复制';
-								copyBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+								copyBtn.addClass('success');
 								setTimeout(() => {
 									copyBtn.textContent = '📋 复制链接';
-									copyBtn.style.background = 'linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))';
+									copyBtn.removeClass('success');
 								}, 2000);
 							}
 						} catch (error) {
 							console.error('复制失败:', error);
 							copyBtn.textContent = '❌ 复制失败';
-							copyBtn.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+							copyBtn.addClass('error');
 							setTimeout(() => {
 								copyBtn.textContent = '📋 复制链接';
-								copyBtn.style.background = 'linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))';
+								copyBtn.removeClass('error');
 							}, 2000);
 						}
 					};
@@ -314,30 +237,8 @@ export default class FeishuSharePlugin extends Plugin {
 						text: '🔗 打开',
 						cls: 'feishu-open-btn'
 					});
-					openBtn.style.cssText = `
-						padding: 12px 16px;
-						background: var(--background-secondary);
-						color: var(--text-normal);
-						border: 1px solid var(--background-modifier-border);
-						border-radius: 8px;
-						cursor: pointer;
-						font-size: 14px;
-						font-weight: 500;
-						transition: all 0.3s ease;
-						min-width: 80px;
-					`;
 
-					openBtn.onmouseenter = () => {
-						openBtn.style.background = 'var(--background-modifier-hover)';
-						openBtn.style.transform = 'translateY(-2px)';
-						openBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-					};
 
-					openBtn.onmouseleave = () => {
-						openBtn.style.background = 'var(--background-secondary)';
-						openBtn.style.transform = 'translateY(0)';
-						openBtn.style.boxShadow = 'none';
-					};
 
 					openBtn.onclick = () => {
 						if (result.url) {
@@ -350,33 +251,8 @@ export default class FeishuSharePlugin extends Plugin {
 						text: '×',
 						cls: 'feishu-close-btn'
 					});
-					closeBtn.style.cssText = `
-						position: absolute;
-						top: 8px;
-						right: 8px;
-						width: 24px;
-						height: 24px;
-						background: transparent;
-						border: none;
-						border-radius: 50%;
-						cursor: pointer;
-						font-size: 16px;
-						color: var(--text-muted);
-						display: flex;
-						align-items: center;
-						justify-content: center;
-						transition: all 0.2s ease;
-					`;
 
-					closeBtn.onmouseenter = () => {
-						closeBtn.style.background = 'var(--background-modifier-hover)';
-						closeBtn.style.color = 'var(--text-normal)';
-					};
 
-					closeBtn.onmouseleave = () => {
-						closeBtn.style.background = 'transparent';
-						closeBtn.style.color = 'var(--text-muted)';
-					};
 
 					closeBtn.onclick = () => {
 						linkNotice.hide();

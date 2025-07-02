@@ -218,70 +218,31 @@ export class FeishuSettingTab extends PluginSettingTab {
 
 private addAuthorSection(containerEl: HTMLElement) {
 	// 添加分隔线
-	containerEl.createEl('hr', {
-		attr: {
-			style: 'margin: 24px 0; border: none; border-top: 1px solid var(--background-modifier-border);'
-		}
-	});
+	containerEl.createEl('hr', { cls: 'feishu-author-separator' });
 
 	// 创建作者信息区域
-	const authorSection = containerEl.createDiv({
-		attr: {
-			style: `
-				text-align: center;
-				padding: 16px;
-				background: var(--background-secondary);
-				border-radius: 8px;
-				border: 1px solid var(--background-modifier-border);
-			`
-		}
-	});
+	const authorSection = containerEl.createDiv({ cls: 'feishu-author-section' });
 
 	// 添加标题
 	authorSection.createEl('h4', {
 		text: '👨‍💻 了解作者',
-		attr: {
-			style: 'margin: 0 0 12px 0; color: var(--text-normal);'
-		}
+		cls: 'feishu-author-title'
 	});
 
 	// 添加描述
 	authorSection.createEl('p', {
 		text: '想了解更多关于作者和其他项目的信息？',
-		attr: {
-			style: 'margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;'
-		}
+		cls: 'feishu-author-description'
 	});
 
 	// 添加按钮
 	const authorButton = authorSection.createEl('button', {
 		text: '🌐 访问作者主页',
-		attr: {
-			style: `
-				background: var(--color-accent);
-				color: var(--text-on-accent);
-				border: none;
-				padding: 8px 16px;
-				border-radius: 6px;
-				cursor: pointer;
-				font-size: 14px;
-				font-weight: 500;
-				transition: opacity 0.2s;
-			`
-		}
+		cls: 'feishu-author-button'
 	});
 
 	authorButton.addEventListener('click', () => {
 		window.open('https://ai.xinqi.life/about', '_blank');
-	});
-
-	// 添加悬停效果
-	authorButton.addEventListener('mouseenter', () => {
-		authorButton.style.opacity = '0.8';
-	});
-
-	authorButton.addEventListener('mouseleave', () => {
-		authorButton.style.opacity = '1';
 	});
 }
 

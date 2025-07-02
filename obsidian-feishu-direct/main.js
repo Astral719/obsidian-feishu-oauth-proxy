@@ -1313,58 +1313,22 @@ var FeishuSettingTab = class extends import_obsidian4.PluginSettingTab {
     this.addAuthorSection(containerEl);
   }
   addAuthorSection(containerEl) {
-    containerEl.createEl("hr", {
-      attr: {
-        style: "margin: 24px 0; border: none; border-top: 1px solid var(--background-modifier-border);"
-      }
-    });
-    const authorSection = containerEl.createDiv({
-      attr: {
-        style: `
-				text-align: center;
-				padding: 16px;
-				background: var(--background-secondary);
-				border-radius: 8px;
-				border: 1px solid var(--background-modifier-border);
-			`
-      }
-    });
+    containerEl.createEl("hr", { cls: "feishu-author-separator" });
+    const authorSection = containerEl.createDiv({ cls: "feishu-author-section" });
     authorSection.createEl("h4", {
       text: "\u{1F468}\u200D\u{1F4BB} \u4E86\u89E3\u4F5C\u8005",
-      attr: {
-        style: "margin: 0 0 12px 0; color: var(--text-normal);"
-      }
+      cls: "feishu-author-title"
     });
     authorSection.createEl("p", {
       text: "\u60F3\u4E86\u89E3\u66F4\u591A\u5173\u4E8E\u4F5C\u8005\u548C\u5176\u4ED6\u9879\u76EE\u7684\u4FE1\u606F\uFF1F",
-      attr: {
-        style: "margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;"
-      }
+      cls: "feishu-author-description"
     });
     const authorButton = authorSection.createEl("button", {
       text: "\u{1F310} \u8BBF\u95EE\u4F5C\u8005\u4E3B\u9875",
-      attr: {
-        style: `
-				background: var(--color-accent);
-				color: var(--text-on-accent);
-				border: none;
-				padding: 8px 16px;
-				border-radius: 6px;
-				cursor: pointer;
-				font-size: 14px;
-				font-weight: 500;
-				transition: opacity 0.2s;
-			`
-      }
+      cls: "feishu-author-button"
     });
     authorButton.addEventListener("click", () => {
       window.open("https://ai.xinqi.life/about", "_blank");
-    });
-    authorButton.addEventListener("mouseenter", () => {
-      authorButton.style.opacity = "0.8";
-    });
-    authorButton.addEventListener("mouseleave", () => {
-      authorButton.style.opacity = "1";
     });
   }
   startAutoAuth() {
@@ -1665,124 +1629,46 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
         if (result.url) {
           const linkNotice = new import_obsidian5.Notice("", 1e4);
           linkNotice.noticeEl.empty();
-          linkNotice.noticeEl.style.cssText = `
-						background: transparent !important;
-						border: none !important;
-						box-shadow: none !important;
-						padding: 0 !important;
-						margin: 0 !important;
-					`;
+          linkNotice.noticeEl.addClass("feishu-notice-reset");
           const container = linkNotice.noticeEl.createDiv("feishu-success-container");
-          container.style.cssText = `
-						position: relative;
-						display: flex;
-						flex-direction: column;
-						gap: 16px;
-						padding: 20px;
-						background: var(--background-primary);
-						border-radius: 12px;
-						border: 1px solid var(--background-modifier-border);
-						box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-						min-width: 320px;
-						max-width: 400px;
-					`;
           const header = container.createDiv("feishu-success-header");
-          header.style.cssText = `
-						display: flex;
-						align-items: center;
-						gap: 12px;
-					`;
           const iconContainer = header.createDiv("feishu-icon-container");
-          iconContainer.style.cssText = `
-						width: 48px;
-						height: 48px;
-						background: linear-gradient(135deg, #4CAF50, #45a049);
-						border-radius: 50%;
-						display: flex;
-						align-items: center;
-						justify-content: center;
-						box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-					`;
           const icon = iconContainer.createEl("span", {
             text: "\u2713",
             cls: "feishu-success-icon"
           });
-          icon.style.cssText = `
-						font-size: 24px;
-						font-weight: bold;
-						color: white;
-					`;
           const headerText = header.createDiv("feishu-header-text");
-          headerText.style.cssText = `
-						flex: 1;
-					`;
           const title2 = headerText.createEl("div", {
             text: "\u5206\u4EAB\u6210\u529F\uFF01",
             cls: "feishu-success-title"
           });
-          title2.style.cssText = `
-						font-size: 18px;
-						font-weight: 600;
-						color: var(--text-normal);
-						margin-bottom: 4px;
-					`;
           const subtitle = headerText.createEl("div", {
             text: `\u6587\u6863\uFF1A${result.title}`,
             cls: "feishu-success-subtitle"
           });
-          subtitle.style.cssText = `
-						font-size: 14px;
-						color: var(--text-muted);
-						line-height: 1.4;
-					`;
           const buttonGroup = container.createDiv("feishu-button-group");
-          buttonGroup.style.cssText = `
-						display: flex;
-						gap: 12px;
-					`;
           const copyBtn = buttonGroup.createEl("button", {
             text: "\u{1F4CB} \u590D\u5236\u94FE\u63A5",
             cls: "feishu-copy-btn"
           });
-          copyBtn.style.cssText = `
-						flex: 1;
-						padding: 12px 16px;
-						background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
-						color: var(--text-on-accent);
-						border: none;
-						border-radius: 8px;
-						cursor: pointer;
-						font-size: 14px;
-						font-weight: 500;
-						transition: all 0.3s ease;
-						box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-					`;
-          copyBtn.onmouseenter = () => {
-            copyBtn.style.transform = "translateY(-2px)";
-            copyBtn.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.15)";
-          };
-          copyBtn.onmouseleave = () => {
-            copyBtn.style.transform = "translateY(0)";
-            copyBtn.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
-          };
           copyBtn.onclick = async () => {
             try {
               if (result.url) {
                 await navigator.clipboard.writeText(result.url);
                 copyBtn.textContent = "\u2705 \u5DF2\u590D\u5236";
-                copyBtn.style.background = "linear-gradient(135deg, #4CAF50, #45a049)";
+                copyBtn.addClass("success");
                 setTimeout(() => {
                   copyBtn.textContent = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
-                  copyBtn.style.background = "linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))";
+                  copyBtn.removeClass("success");
                 }, 2e3);
               }
             } catch (error) {
               console.error("\u590D\u5236\u5931\u8D25:", error);
               copyBtn.textContent = "\u274C \u590D\u5236\u5931\u8D25";
-              copyBtn.style.background = "linear-gradient(135deg, #f44336, #d32f2f)";
+              copyBtn.addClass("error");
               setTimeout(() => {
                 copyBtn.textContent = "\u{1F4CB} \u590D\u5236\u94FE\u63A5";
-                copyBtn.style.background = "linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover))";
+                copyBtn.removeClass("error");
               }, 2e3);
             }
           };
@@ -1790,28 +1676,6 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
             text: "\u{1F517} \u6253\u5F00",
             cls: "feishu-open-btn"
           });
-          openBtn.style.cssText = `
-						padding: 12px 16px;
-						background: var(--background-secondary);
-						color: var(--text-normal);
-						border: 1px solid var(--background-modifier-border);
-						border-radius: 8px;
-						cursor: pointer;
-						font-size: 14px;
-						font-weight: 500;
-						transition: all 0.3s ease;
-						min-width: 80px;
-					`;
-          openBtn.onmouseenter = () => {
-            openBtn.style.background = "var(--background-modifier-hover)";
-            openBtn.style.transform = "translateY(-2px)";
-            openBtn.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
-          };
-          openBtn.onmouseleave = () => {
-            openBtn.style.background = "var(--background-secondary)";
-            openBtn.style.transform = "translateY(0)";
-            openBtn.style.boxShadow = "none";
-          };
           openBtn.onclick = () => {
             if (result.url) {
               window.open(result.url, "_blank");
@@ -1821,31 +1685,6 @@ var FeishuSharePlugin = class extends import_obsidian5.Plugin {
             text: "\xD7",
             cls: "feishu-close-btn"
           });
-          closeBtn.style.cssText = `
-						position: absolute;
-						top: 8px;
-						right: 8px;
-						width: 24px;
-						height: 24px;
-						background: transparent;
-						border: none;
-						border-radius: 50%;
-						cursor: pointer;
-						font-size: 16px;
-						color: var(--text-muted);
-						display: flex;
-						align-items: center;
-						justify-content: center;
-						transition: all 0.2s ease;
-					`;
-          closeBtn.onmouseenter = () => {
-            closeBtn.style.background = "var(--background-modifier-hover)";
-            closeBtn.style.color = "var(--text-normal)";
-          };
-          closeBtn.onmouseleave = () => {
-            closeBtn.style.background = "transparent";
-            closeBtn.style.color = "var(--text-muted)";
-          };
           closeBtn.onclick = () => {
             linkNotice.hide();
           };
